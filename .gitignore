@@ -1,0 +1,32 @@
+# Binaries — go build output and goreleaser artifacts
+bclgen
+bclgen.exe
+/dist/
+
+# Test binary, build artifacts, coverage profile
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Go workspace files (we don't use them; ignore if someone tries)
+go.work
+go.work.sum
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+.envrc
+
+# OS
+.DS_Store
+
+# Local scratch from manual testing
+/mockrun/
+/bigtest/
+/progtest/

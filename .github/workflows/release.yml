@@ -1,0 +1,32 @@
+name: release
+
+# Triggered by a v* tag push. Builds multi-OS binaries, attaches them to a
+# GitHub Release, and pushes a Docker image to ghcr.io.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # create the GitHub Release
+  packages: write   # push to ghcr.io
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # goreleaser changelog needs full history
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
