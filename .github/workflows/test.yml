@@ -13,11 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Default cone-mode sparse-checkout has been observed to leave Go
+          # unable to find packages on a freshly-initialized single-commit
+          # repo; full checkout avoids the whole class of issues.
+          sparse-checkout: false
 
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-          cache: true
+          cache: false   # no go.sum yet (no third-party deps)
 
       - name: build
         run: go build ./...
