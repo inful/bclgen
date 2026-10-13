@@ -1,6 +1,10 @@
-# Binaries — go build output and goreleaser artifacts
-bclgen
-bclgen.exe
+# Binaries — go build output and goreleaser artifacts.
+# IMPORTANT: anchor with / so the patterns only match at the repo root.
+# Without the anchor, `bclgen` also matches every subdirectory of the
+# same name (cmd/bclgen/, internal/bclgen/) and silently excludes the
+# source tree from git.
+/bclgen
+/bclgen.exe
 /dist/
 
 # Test binary, build artifacts, coverage profile
