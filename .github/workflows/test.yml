@@ -24,6 +24,18 @@ jobs:
           go-version: '1.26'
           cache: false   # no go.sum yet (no third-party deps)
 
+      - name: debug working tree
+        run: |
+          echo "pwd=$(pwd)"
+          echo "--- tree:"
+          ls -la
+          echo "--- go.mod:"
+          cat go.mod
+          echo "--- .git/HEAD:"
+          cat .git/HEAD 2>&1 || true
+          echo "--- go list ./... :"
+          go list ./... 2>&1 || true
+
       - name: build
         run: go build ./...
 
