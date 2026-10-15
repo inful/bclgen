@@ -3,26 +3,19 @@ package bclgen
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestFilterFile_Layout(t *testing.T) {
-	out := t.TempDir()
 	spec := DefaultSpec()
-	spec.Out = out
 	spec.Clusters = 7
 	spec.PFRate = 1.0
 
-	if err := Generate(spec); err != nil {
-		t.Fatalf("Generate: %v", err)
+	var buf bytes.Buffer
+	if err := writeFilter(&buf, spec); err != nil {
+		t.Fatalf("writeFilter: %v", err)
 	}
-	path := filepath.Join(out, "Data", "Intensities", "BaseCalls", "L001", "s_1_1101.filter")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read filter: %v", err)
-	}
+	data := buf.Bytes()
 	// bcl2fastq v2.20 header: 12 bytes (zero marker + version + N) + N cluster bytes.
 	if len(data) != 12+7 {
 		t.Fatalf("filter size = %d, want %d", len(data), 12+7)
@@ -44,21 +37,16 @@ func TestFilterFile_Layout(t *testing.T) {
 }
 
 func TestFilterFile_PartialPFRate(t *testing.T) {
-	out := t.TempDir()
 	spec := DefaultSpec()
-	spec.Out = out
 	spec.Clusters = 1000
 	spec.PFRate = 0.5
 	spec.Seed = 99
 
-	if err := Generate(spec); err != nil {
-		t.Fatalf("Generate: %v", err)
+	var buf bytes.Buffer
+	if err := writeFilter(&buf, spec); err != nil {
+		t.Fatalf("writeFilter: %v", err)
 	}
-	path := filepath.Join(out, "Data", "Intensities", "BaseCalls", "L001", "s_1_1101.filter")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read filter: %v", err)
-	}
+	data := buf.Bytes()
 	pf := 0
 	for _, b := range data[12:] {
 		if b&0x01 == 1 {
@@ -72,22 +60,17 @@ func TestFilterFile_PartialPFRate(t *testing.T) {
 }
 
 func TestFilterFile_DeterministicBytes(t *testing.T) {
-	// Two runs with the same seed → byte-identical .filter files.
+	// Two calls with the same seed → byte-identical .filter payloads.
 	run := func(seed uint64) []byte {
-		out := t.TempDir()
 		spec := DefaultSpec()
-		spec.Out = out
 		spec.Seed = seed
 		spec.PFRate = 0.7
 		spec.Clusters = 64
-		if err := Generate(spec); err != nil {
-			t.Fatalf("Generate: %v", err)
+		var buf bytes.Buffer
+		if err := writeFilter(&buf, spec); err != nil {
+			t.Fatalf("writeFilter: %v", err)
 		}
-		data, err := os.ReadFile(filepath.Join(out, "Data", "Intensities", "BaseCalls", "L001", "s_1_1101.filter"))
-		if err != nil {
-			t.Fatalf("read filter: %v", err)
-		}
-		return data
+		return buf.Bytes()
 	}
 	a, b := run(13), run(13)
 	if !bytes.Equal(a, b) {
