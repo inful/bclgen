@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write   # create the GitHub Release
-  packages: write   # push to ghcr.io
 
 jobs:
   release:
@@ -31,3 +30,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}   # uncomment to publish Docker images
