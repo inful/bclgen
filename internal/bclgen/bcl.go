@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
-	"os"
 	"path/filepath"
 )
 
@@ -176,11 +175,6 @@ func writeBCLFile(out io.Writer, spec RunSpec, lane, cycle, tileNum int) error {
 	})
 }
 
-// bclChunkSize is the streaming chunk size for both writeConstantClusters
-// and writeRandomClusters. 4 KiB matches a typical filesystem block and
-// gzip's internal buffer, so gzip.Writer.Write hits a hot path.
-const bclChunkSize = 4096
-
 // writeConstantClusters writes n identical cluster bytes to w. When noCall is
 // true, every byte is 0x00 (no-call). Otherwise every byte is
 // packClusterByte(base, qscore).
@@ -189,21 +183,12 @@ func writeConstantClusters(w io.Writer, n int, base byte, noCall bool, qscore in
 	if !noCall {
 		b = packClusterByte(base, qscore)
 	}
-	chunk := make([]byte, bclChunkSize)
-	for i := range chunk {
-		chunk[i] = b
-	}
-	remaining := n
-	for remaining > 0 {
-		if remaining < len(chunk) {
-			chunk = chunk[:remaining]
+	return streamChunks(w, n, func(buf []byte) error {
+		for i := range buf {
+			buf[i] = b
 		}
-		if _, err := w.Write(chunk); err != nil {
-			return fmt.Errorf("bclgen: write const clusters: %w", err)
-		}
-		remaining -= len(chunk)
-	}
-	return nil
+		return nil
+	})
 }
 
 // writeRandomClusters writes n random cluster bytes to w using rng. Each
@@ -211,26 +196,16 @@ func writeConstantClusters(w io.Writer, n int, base byte, noCall bool, qscore in
 // noCallRate, or packClusterByte(uniformBase, qscore). RNG calls happen in
 // ascending cluster order, matching the old non-streaming path.
 func writeRandomClusters(w io.Writer, n, qscore int, noCallRate float64, rng *rand.Rand) error {
-	chunk := make([]byte, bclChunkSize)
-	remaining := n
-	for remaining > 0 {
-		size := len(chunk)
-		if remaining < size {
-			size = remaining
-		}
-		for i := 0; i < size; i++ {
+	return streamChunks(w, n, func(buf []byte) error {
+		for i := range buf {
 			if noCallRate > 0 && rng.Float64() < noCallRate {
-				chunk[i] = 0x00
+				buf[i] = 0x00
 			} else {
-				chunk[i] = packClusterByte(byte(rng.IntN(4)), qscore)
+				buf[i] = packClusterByte(byte(rng.IntN(4)), qscore)
 			}
 		}
-		if _, err := w.Write(chunk[:size]); err != nil {
-			return fmt.Errorf("bclgen: write random clusters: %w", err)
-		}
-		remaining -= size
-	}
-	return nil
+		return nil
+	})
 }
 
 // writeBCLFileToDisk is the on-disk counterpart of writeBCLFile: it creates the
@@ -240,13 +215,7 @@ func writeBCLFileToDisk(spec RunSpec, lane, cycle, tileNum int) error {
 	dir := spec.cycleDir(lane, cycle)
 	name := fmt.Sprintf("s_%d_%04d.bcl.gz", lane, tileNum)
 	path := filepath.Join(dir, name)
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("bclgen: create %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-	if err := writeBCLFile(f, spec, lane, cycle, tileNum); err != nil {
-		return fmt.Errorf("bclgen: write %s: %w", path, err)
-	}
-	return nil
+	return writeBinary(path, func(w io.Writer) error {
+		return writeBCLFile(w, spec, lane, cycle, tileNum)
+	})
 }
