@@ -3,8 +3,8 @@ package bclgen
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
-	"os"
 	"path/filepath"
 )
 
@@ -33,32 +33,32 @@ import (
 // positions" without the magic header — that description is for the older
 // s.locs format and doesn't match what the source actually reads.
 func writeLocsFile(spec RunSpec, lane, swath, tile int) error {
-	rng := spec.rng()
-
 	// Directory is pre-created by Generate.precreateDirs.
 	dir := spec.locsDir(lane)
 	tileNum := spec.tileNumber(lane, swath, tile)
 	path := filepath.Join(dir, fmt.Sprintf("s_%d_%04d.locs", lane, tileNum))
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("bclgen: create %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
+	return writeBinary(path, func(w io.Writer) error {
+		return writeLocs(w, spec)
+	})
+}
 
+// writeLocs writes the per-tile locs payload to w: a 12-byte header
+// (field1=1, field2=1.0, N) followed by N records of { float32 X, float32 Y }.
+// RNG calls happen in ascending cluster order, preserving determinism.
+func writeLocs(w io.Writer, spec RunSpec) error {
 	var hdr [12]byte
 	binary.LittleEndian.PutUint32(hdr[0:4], 1)                     // field1 = 1
 	binary.LittleEndian.PutUint32(hdr[4:8], math.Float32bits(1.0)) // field2 = 1.0
 	binary.LittleEndian.PutUint32(hdr[8:12], uint32(spec.Clusters))
-	if _, err := f.Write(hdr[:]); err != nil {
+	if _, err := w.Write(hdr[:]); err != nil {
 		return fmt.Errorf("bclgen: write locs header: %w", err)
 	}
 
-	// 8 bytes per cluster (float32 X, float32 Y). Stream in ~4 KiB chunks
-	// (512 records) so memory is bounded for large Clusters. RNG calls
-	// happen in the same ascending cluster order as before, so the
-	// deterministic output is preserved.
+	// 8 bytes per cluster (float32 X, float32 Y). Stream in 512-record
+	// (4096-byte) chunks so memory is bounded for large Clusters.
 	const chunkRecords = 512
 	chunk := make([]locsRecord, chunkRecords)
+	rng := spec.rng()
 	remaining := spec.Clusters
 	for remaining > 0 {
 		n := len(chunk)
@@ -70,7 +70,7 @@ func writeLocsFile(spec RunSpec, lane, swath, tile int) error {
 			chunk[i].X = float32(rng.Float64()*1000.0) / 10.0
 			chunk[i].Y = float32(rng.Float64()*1000.0) / 10.0
 		}
-		if err := binary.Write(f, binary.LittleEndian, chunk[:n]); err != nil {
+		if err := binary.Write(w, binary.LittleEndian, chunk[:n]); err != nil {
 			return fmt.Errorf("bclgen: write locs body: %w", err)
 		}
 		remaining -= n

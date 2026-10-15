@@ -3,7 +3,7 @@ package bclgen
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
+	"io"
 )
 
 // Filter file header version emitted by bclgen. bcl2fastq v2.20
@@ -30,40 +30,42 @@ const filterFileVersion uint32 = 3
 // <InputDir>/L<NNN>/s_<lane>_<%04d-tile>.filter, where InputDir defaults to
 // <runfolder>/Data/Intensities/BaseCalls/.
 func writeFilterFile(spec RunSpec, lane, swath, tile int) error {
-	rng := spec.rng()
-
-	var hdr [12]byte
-	binary.LittleEndian.PutUint32(hdr[0:4], 0)                 // marker: header follows
-	binary.LittleEndian.PutUint32(hdr[4:8], filterFileVersion) // version = 3
-	binary.LittleEndian.PutUint32(hdr[8:12], uint32(spec.Clusters))
-
 	// Directory is pre-created by Generate.precreateDirs.
 	dir := spec.laneDir(lane)
 	tileNum := spec.tileNumber(lane, swath, tile)
 	path := fmt.Sprintf("%s/s_%d_%04d.filter", dir, lane, tileNum)
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("bclgen: create %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
+	return writeBinary(path, func(w io.Writer) error {
+		return writeFilter(w, spec)
+	})
+}
 
-	if _, err := f.Write(hdr[:]); err != nil {
+// writeFilter writes the per-tile filter payload to w. Header (12 bytes:
+// marker=0, version=3, N) followed by N bytes with bit 0 = pass-filter.
+// At PFRate >= 1.0 the RNG is skipped entirely.
+func writeFilter(w io.Writer, spec RunSpec) error {
+	var hdr [12]byte
+	binary.LittleEndian.PutUint32(hdr[0:4], 0)                 // marker: header follows
+	binary.LittleEndian.PutUint32(hdr[4:8], filterFileVersion) // version = 3
+	binary.LittleEndian.PutUint32(hdr[8:12], uint32(spec.Clusters))
+	if _, err := w.Write(hdr[:]); err != nil {
 		return fmt.Errorf("bclgen: write filter header: %w", err)
 	}
+
 	pf := make([]byte, spec.Clusters)
 	if spec.PFRate >= 1.0 {
-		// Fast path: every cluster passes filter.
+		// Fast path: every cluster passes filter; skip the RNG entirely.
 		for i := range pf {
 			pf[i] = 0x01
 		}
 	} else {
+		rng := spec.rng()
 		for i := range pf {
 			if rng.Float64() < spec.PFRate {
 				pf[i] = 0x01
 			}
 		}
 	}
-	if _, err := f.Write(pf); err != nil {
+	if _, err := w.Write(pf); err != nil {
 		return fmt.Errorf("bclgen: write filter bytes: %w", err)
 	}
 	return nil
