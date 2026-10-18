@@ -41,7 +41,9 @@ func writeFilterFile(spec RunSpec, lane, swath, tile int) error {
 
 // writeFilter writes the per-tile filter payload to w. Header (12 bytes:
 // marker=0, version=3, N) followed by N bytes with bit 0 = pass-filter.
-// At PFRate >= 1.0 the RNG is skipped entirely.
+// At PFRate >= 1.0 the RNG is skipped entirely. The body streams in 4 KiB
+// chunks (matching BCL and locs) so memory use stays bounded for large
+// Clusters.
 func writeFilter(w io.Writer, spec RunSpec) error {
 	var hdr [12]byte
 	binary.LittleEndian.PutUint32(hdr[0:4], 0)                 // marker: header follows
@@ -51,22 +53,23 @@ func writeFilter(w io.Writer, spec RunSpec) error {
 		return fmt.Errorf("bclgen: write filter header: %w", err)
 	}
 
-	pf := make([]byte, spec.Clusters)
 	if spec.PFRate >= 1.0 {
 		// Fast path: every cluster passes filter; skip the RNG entirely.
-		for i := range pf {
-			pf[i] = 0x01
-		}
-	} else {
-		rng := spec.rng()
-		for i := range pf {
+		// Fill the chunk with 0x01 and stream it.
+		return streamChunks(w, spec.Clusters, func(buf []byte) error {
+			for i := range buf {
+				buf[i] = 0x01
+			}
+			return nil
+		})
+	}
+	rng := spec.rng()
+	return streamChunks(w, spec.Clusters, func(buf []byte) error {
+		for i := range buf {
 			if rng.Float64() < spec.PFRate {
-				pf[i] = 0x01
+				buf[i] = 0x01
 			}
 		}
-	}
-	if _, err := w.Write(pf); err != nil {
-		return fmt.Errorf("bclgen: write filter bytes: %w", err)
-	}
-	return nil
+		return nil
+	})
 }
