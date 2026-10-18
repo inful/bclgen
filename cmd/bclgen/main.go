@@ -48,22 +48,28 @@ Same -seed + same other flags ⇒ byte-identical output.
 `)
 	}
 
+	// Flag defaults come from DefaultSpec() so the CLI and library can
+	// never disagree on a default. Date is the one field that stays
+	// empty by flag default — its "default" is "today", which is
+	// resolved at Generate time so two runs in the same invocation
+	// always see the same date.
+	defaults := bclgen.DefaultSpec()
 	var (
 		out         = fs.String("out", "", "output run folder directory (required)")
-		lanes       = fs.Int("lanes", 1, "number of lanes")
-		cycles      = fs.Int("cycles", 26, "number of cycles (single Read in RunInfo.xml)")
-		swaths      = fs.Int("swaths", 1, "swaths per lane")
-		tiles       = fs.Int("tiles", 1, "tiles per swath")
-		clusters    = fs.Int("clusters", 1000, "clusters per tile")
-		surfaces    = fs.Int("surfaces", 1, "surfaces per lane (1 or 2)")
-		pfRate      = fs.Float64("pf-rate", 1.0, "fraction of clusters that pass filter (0..1)")
-		noCallRate  = fs.Float64("no-call-rate", 0.0, "fraction of cluster bytes written as no-call (0..1)")
-		qscore      = fs.Int("qscore", 30, "Phred quality score written into every cluster byte (0..63)")
-		seed        = fs.Uint64("seed", 1, "PRNG seed; same seed + same flags => byte-identical output")
-		runID       = fs.String("run-id", "", "RunInfo RunId (default \"run1\")")
-		instrument  = fs.String("instrument", "", "RunInfo Instrument (default \"A00000\")")
-		date        = fs.String("date", "", "RunInfo Date in YYMMDD (default today)")
-		flowcell    = fs.String("flowcell", "", "RunInfo Flowcell (default synthetic)")
+		lanes       = fs.Int("lanes", defaults.Lanes, "number of lanes")
+		cycles      = fs.Int("cycles", defaults.Cycles, "number of cycles (single Read in RunInfo.xml)")
+		swaths      = fs.Int("swaths", defaults.Swaths, "swaths per lane")
+		tiles       = fs.Int("tiles", defaults.Tiles, "tiles per swath")
+		clusters    = fs.Int("clusters", defaults.Clusters, "clusters per tile")
+		surfaces    = fs.Int("surfaces", defaults.Surfaces, "surfaces per lane (1 or 2)")
+		pfRate      = fs.Float64("pf-rate", defaults.PFRate, "fraction of clusters that pass filter (0..1)")
+		noCallRate  = fs.Float64("no-call-rate", defaults.NoCallRate, "fraction of cluster bytes written as no-call (0..1)")
+		qscore      = fs.Int("qscore", defaults.QScore, "Phred quality score written into every cluster byte (0..63)")
+		seed        = fs.Uint64("seed", defaults.Seed, "PRNG seed; same seed + same flags => byte-identical output")
+		runID       = fs.String("run-id", defaults.RunID, "RunInfo RunId")
+		instrument  = fs.String("instrument", defaults.Instrument, "RunInfo Instrument")
+		date        = fs.String("date", "", "RunInfo Date in YYMMDD (default: today)")
+		flowcell    = fs.String("flowcell", defaults.Flowcell, "RunInfo Flowcell")
 		runInfoPath = fs.String("runinfo", "", "path to a hand-written RunInfo.xml to copy in instead of generating one")
 		sampleSheet = fs.String("sample-sheet", "", "path to a SampleSheet.csv to copy into the run root")
 		sequence    = fs.String("sequence", "", "per-cycle base pattern (e.g. \"ACGT\" or \"ACGTACGTN\"). When set, cycle i uses the i'th character (mod length) for ALL clusters, overriding random bases. Allowed: A/C/G/T/N (case-insensitive).")
