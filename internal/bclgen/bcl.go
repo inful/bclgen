@@ -21,6 +21,29 @@ const (
 	BaseT byte = 3
 )
 
+// parseBase decodes one Illumina base character. Returns ok=false for
+// anything other than A/C/G/T/N (case-insensitive). 'N' is a no-call:
+// the caller writes 0x00 to the cluster byte instead of using the
+// returned (zero) base. This is the single source of truth for what
+// counts as a valid Illumina base; spec.Validate and sequenceBase
+// both delegate here so the allowed set can't drift between them.
+func parseBase(ch byte) (base byte, noCall bool, ok bool) {
+	switch ch {
+	case 'A', 'a':
+		return BaseA, false, true
+	case 'C', 'c':
+		return BaseC, false, true
+	case 'G', 'g':
+		return BaseG, false, true
+	case 'T', 't':
+		return BaseT, false, true
+	case 'N', 'n':
+		return 0, true, true
+	default:
+		return 0, false, false
+	}
+}
+
 // packClusterByte encodes one cluster byte per Table 1.
 //
 //	bits 0..1 = base (A=0, C=1, G=2, T=3)
@@ -127,26 +150,19 @@ func readBCL(r io.Reader, wantN int) ([]byte, error) {
 
 // sequenceBase returns the base (A=0, C=1, G=2, T=3) for the given
 // 0-based cycle index, or (0, true) for a no-call ('N'). Returns an error
-// if the sequence is empty or contains an invalid character.
+// if the sequence is empty or contains an invalid character. The actual
+// base character set is owned by parseBase; this function only adds the
+// "which character in this string" indexing and the error wrapping.
 func sequenceBase(seq string, cycle int) (base byte, noCall bool, err error) {
 	if seq == "" {
 		return 0, false, fmt.Errorf("bclgen: empty sequence")
 	}
 	ch := seq[cycle%len(seq)]
-	switch ch {
-	case 'A', 'a':
-		return BaseA, false, nil
-	case 'C', 'c':
-		return BaseC, false, nil
-	case 'G', 'g':
-		return BaseG, false, nil
-	case 'T', 't':
-		return BaseT, false, nil
-	case 'N', 'n':
-		return 0, true, nil
-	default:
+	base, noCall, ok := parseBase(ch)
+	if !ok {
 		return 0, false, fmt.Errorf("bclgen: invalid base %q in sequence %q (allowed: A/C/G/T/N)", string(ch), seq)
 	}
+	return base, noCall, nil
 }
 
 // writeBCLFile generates a single .bcl.gz file for (lane, cycle, tile) using
