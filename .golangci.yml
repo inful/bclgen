@@ -1,0 +1,58 @@
+# golangci-lint configuration.
+#
+# Without this file, CI uses the default 5 linters (errcheck, govet,
+# ineffassign, staticcheck, unused). This file is a record of which
+# additional linters the project deliberately does NOT enforce, and
+# the rationale per linter. See commit 321bb71 ("lint: address real
+# findings from a strict golangci-lint pass") for the full context.
+#
+# The goal: when someone enables a stricter linter set in the future,
+# the choices below are already documented in the repo rather than
+# needing to be re-derived.
+version: "2"
+linters:
+  disable:
+    # CLI error messages embed the offending value in the text
+    # (e.g. "Lanes must be in [1, 999], got 1500"). Sentinel errors
+    # would force that context into a separate format step and make
+    # user-facing output worse.
+    - err113
+
+    # DefaultSpec() is intentionally a partial struct literal — it
+    # relies on Go's zero-value defaults for the fields it doesn't
+    # set. The runInfo literal uses xml: tags to drive marshaling,
+    # so its field set is also intentionally narrow.
+    - exhaustruct
+    - exhaustruct_v5
+
+    # The current order (DefaultSpec → fillDefaults → Validate) reads
+    # as a story about how a spec is built up. Reordering to put
+    # fillDefaults after Validate would break that flow for no
+    # behavioural gain.
+    - funcorder
+
+    # Named returns are used in the bcl.go decoder trio
+    # (parseBase, decodeClusterByte, sequenceBase) because the names
+    # are part of the public documentation of the return shape.
+    - nonamedreturns
+
+    # Pure whitespace style; no behavior or clarity effect.
+    - wsl
+    - wsl_v5
+
+  settings:
+    revive:
+      # The existing package comment "// Package bclgen: ..." is a
+      # standard Go shorthand; the rule wants the more verbose
+      # "Package bclgen ..." form. Style only.
+      rules:
+        - name: package-comments
+          disabled: true
+
+  exclusions:
+    rules:
+      # Tests frequently defer-and-ignore close errors for brevity.
+      # Production code keeps the strict errcheck behavior.
+      - path: _test\.go
+        linters:
+          - errcheck
