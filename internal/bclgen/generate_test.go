@@ -89,7 +89,10 @@ func TestGenerate_RefusesNonEmptyDir(t *testing.T) {
 }
 
 func TestGenerate_Deterministic(t *testing.T) {
-	// Two identical runs produce byte-identical run folders.
+	// Two identical runs produce byte-identical run folders. Pin Date
+	// explicitly: DefaultSpec() reads time.Now() and the tree hash
+	// includes the Date in RunInfo.xml, so a midnight-crossing test
+	// run would compare different dates and flake.
 	run := func() string {
 		out := t.TempDir()
 		spec := DefaultSpec()
@@ -97,6 +100,7 @@ func TestGenerate_Deterministic(t *testing.T) {
 		spec.Cycles = 3
 		spec.Clusters = 32
 		spec.Seed = 2024
+		spec.Date = "260101"
 		if err := Generate(spec); err != nil {
 			t.Fatalf("Generate: %v", err)
 		}
