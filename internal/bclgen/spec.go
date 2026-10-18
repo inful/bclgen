@@ -144,21 +144,25 @@ func (s RunSpec) fillDefaults() RunSpec {
 }
 
 // Validate checks the spec for out-of-range values. Returns the first error.
+//
+// Upper bounds on Lanes/Swaths/Tiles protect the on-disk file-name format
+// (L%03d for lane, %04d for tile = surface*1000 + swath*100 + tile). Values
+// that overflow the format produce file names bcl2fastq v2.20 won't match.
 func (s RunSpec) Validate() error {
 	if s.Out == "" {
 		return fmt.Errorf("bclgen: Out is required")
 	}
-	if s.Lanes < 1 {
-		return fmt.Errorf("bclgen: Lanes must be >= 1, got %d", s.Lanes)
+	if s.Lanes < 1 || s.Lanes > 999 {
+		return fmt.Errorf("bclgen: Lanes must be in [1, 999], got %d", s.Lanes)
 	}
 	if s.Surfaces != 1 && s.Surfaces != 2 {
 		return fmt.Errorf("bclgen: Surfaces must be 1 or 2, got %d", s.Surfaces)
 	}
-	if s.Swaths < 1 {
-		return fmt.Errorf("bclgen: Swaths must be >= 1, got %d", s.Swaths)
+	if s.Swaths < 1 || s.Swaths > 9 {
+		return fmt.Errorf("bclgen: Swaths must be in [1, 9], got %d", s.Swaths)
 	}
-	if s.Tiles < 1 {
-		return fmt.Errorf("bclgen: Tiles must be >= 1, got %d", s.Tiles)
+	if s.Tiles < 1 || s.Tiles > 99 {
+		return fmt.Errorf("bclgen: Tiles must be in [1, 99], got %d", s.Tiles)
 	}
 	if s.Cycles < 1 {
 		return fmt.Errorf("bclgen: Cycles must be >= 1, got %d", s.Cycles)

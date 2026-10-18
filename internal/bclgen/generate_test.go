@@ -158,9 +158,27 @@ func TestGenerate_HandlesValidationErrors(t *testing.T) {
 	}
 	spec = DefaultSpec()
 	spec.Out = t.TempDir()
+	spec.Lanes = 1000
+	if err := Generate(spec); err == nil {
+		t.Errorf("expected validation error for Lanes=1000 (would overflow L%%03d)")
+	}
+	spec = DefaultSpec()
+	spec.Out = t.TempDir()
 	spec.Surfaces = 7
 	if err := Generate(spec); err == nil {
 		t.Errorf("expected validation error for Surfaces=7")
+	}
+	spec = DefaultSpec()
+	spec.Out = t.TempDir()
+	spec.Swaths = 100
+	if err := Generate(spec); err == nil {
+		t.Errorf("expected validation error for Swaths=100 (would overflow %%04d tile id)")
+	}
+	spec = DefaultSpec()
+	spec.Out = t.TempDir()
+	spec.Tiles = 100
+	if err := Generate(spec); err == nil {
+		t.Errorf("expected validation error for Tiles=100 (would overflow %%04d tile id)")
 	}
 	spec = DefaultSpec()
 	spec.Out = ""
