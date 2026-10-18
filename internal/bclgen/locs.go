@@ -61,11 +61,8 @@ func writeLocs(w io.Writer, spec RunSpec) error {
 	rng := spec.rng()
 	remaining := spec.Clusters
 	for remaining > 0 {
-		n := len(chunk)
-		if remaining < n {
-			n = remaining
-		}
-		for i := 0; i < n; i++ {
+		n := min(remaining, len(chunk))
+		for i := range n {
 			// X and Y around 0.0 (any value works; bcl2fastq transforms to int).
 			chunk[i].X = float32(rng.Float64()*1000.0) / 10.0
 			chunk[i].Y = float32(rng.Float64()*1000.0) / 10.0

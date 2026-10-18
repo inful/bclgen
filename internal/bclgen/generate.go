@@ -52,10 +52,7 @@ func Generate(spec RunSpec) error {
 	if spec.Progress {
 		// Print at most ~50 evenly-spaced progress lines regardless of run size.
 		// For tiny runs (≤50 tiles) we fall back to one line per tile.
-		progressEvery = totalTiles / 50
-		if progressEvery < 1 {
-			progressEvery = 1
-		}
+		progressEvery = max(totalTiles/50, 1)
 	}
 
 	tilesDone := 0

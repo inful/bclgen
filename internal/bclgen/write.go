@@ -44,10 +44,7 @@ func streamChunks(w io.Writer, n int, fill func(buf []byte) error) error {
 	buf := make([]byte, chunkSize)
 	remaining := n
 	for remaining > 0 {
-		size := len(buf)
-		if remaining < size {
-			size = remaining
-		}
+		size := min(remaining, len(buf))
 		if err := fill(buf[:size]); err != nil {
 			return err
 		}

@@ -20,7 +20,7 @@ type runInfo struct {
 }
 
 type runInfoRun struct {
-	RunId      string        `xml:"Id,attr"`     // bcl2fastq reads RunInfo.Run.<xmlattr>.Id
+	RunID      string        `xml:"Id,attr"`     // bcl2fastq reads RunInfo.Run.<xmlattr>.Id
 	Number     int           `xml:"Number,attr"` // bcl2fastq reads RunInfo.Run.<xmlattr>.Number (optional)
 	Instrument string        `xml:"Instrument"`
 	Date       string        `xml:"Date"`
@@ -60,7 +60,7 @@ func writeRunInfo(spec RunSpec) error {
 	ri := runInfo{
 		Version: "2",
 		Run: runInfoRun{
-			RunId:      spec.RunID,
+			RunID:      spec.RunID,
 			Number:     1,
 			Instrument: spec.Instrument,
 			Date:       spec.Date,

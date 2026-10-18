@@ -150,7 +150,11 @@ func sequenceBase(seq string, cycle int) (base byte, noCall bool, err error) {
 // the sequence (mod length) for ALL clusters, overriding the per-cluster
 // random base. This is the path used for regression testing against
 // bcl2fastq: you can verify that the FASTQ output matches a known pattern.
-func writeBCLFile(out io.Writer, spec RunSpec, lane, cycle, tileNum int) error {
+//
+// tileNum is accepted for symmetry with the other writers but is not part
+// of the per-cluster RNG: the tile id is encoded in the file name, not in
+// the bytes inside the file.
+func writeBCLFile(out io.Writer, spec RunSpec, lane, cycle, _ /*tileNum*/ int) error {
 	return writeBCLStream(out, spec.Clusters, func(gz io.Writer) error {
 		if spec.Sequence != "" {
 			base, noCall, err := sequenceBase(spec.Sequence, cycle-1)

@@ -36,8 +36,8 @@ func TestRunInfo_Generated(t *testing.T) {
 	if ri.Version != "2" {
 		t.Errorf("Version = %q, want 2", ri.Version)
 	}
-	if ri.Run.RunId != "abc" {
-		t.Errorf("RunId = %q, want abc", ri.Run.RunId)
+	if ri.Run.RunID != "abc" {
+		t.Errorf("RunId = %q, want abc", ri.Run.RunID)
 	}
 	if ri.Run.Number != 1 {
 		t.Errorf("Run.Number = %d, want 1", ri.Run.Number)
@@ -102,7 +102,7 @@ func TestRunInfo_OverrideFile(t *testing.T) {
 	if err := xml.Unmarshal(got, &ri); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if ri.Version != "3" || ri.Run.RunId != "USER" {
+	if ri.Version != "3" || ri.Run.RunID != "USER" {
 		t.Errorf("user-supplied RunInfo was not used: %s", got)
 	}
 }

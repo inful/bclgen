@@ -180,7 +180,7 @@ func (s RunSpec) Validate() error {
 		return fmt.Errorf("bclgen: QScore must be in [0,63], got %d", s.QScore)
 	}
 	if s.Sequence != "" {
-		for i := 0; i < len(s.Sequence); i++ {
+		for i := range len(s.Sequence) {
 			if _, _, ok := parseBase(s.Sequence[i]); !ok {
 				return fmt.Errorf("bclgen: invalid base %q in sequence %q (allowed: A/C/G/T/N)", s.Sequence[i], s.Sequence)
 			}
