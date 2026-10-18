@@ -88,9 +88,7 @@ func writeRunInfo(spec RunSpec) error {
 	// bcl2fastq expects the XML declaration on the first line.
 	body = append([]byte(xml.Header), body...)
 
-	if err := os.MkdirAll(spec.Out, 0o755); err != nil {
-		return fmt.Errorf("bclgen: mkdir %s: %w", spec.Out, err)
-	}
+	// spec.Out was already MkdirAll'd by Generate.ensureEmptyDir.
 	path := filepath.Join(spec.Out, "RunInfo.xml")
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return fmt.Errorf("bclgen: write %s: %w", path, err)
