@@ -110,7 +110,7 @@ bcl2fastq --runfolder-dir /tmp/mockrun --output-dir /tmp/fastq_out
 | `-lanes`          | 1       | lane count                                      |
 | `-swaths`         | 1       | swaths per lane                                 |
 | `-tiles`          | 1       | tiles per swath                                 |
-| `-surfaces`       | 1       | 1 or 2 (the surface count goes into the cycle dir name `C<N>.<surface>`) |
+| `-surfaces`       | 1       | 1 or 2; written into RunInfo.xml's `SurfaceCount`. bcl2fastq v2.20 hardcodes surface 1 in the cycle dir name for `.bcl.gz`, so only surface 1 files are emitted regardless. |
 | `-cycles`         | 26      | total cycles; emitted as a single `<Read>` in RunInfo.xml |
 | `-clusters`       | 1000    | clusters per tile                               |
 | `-pf-rate`        | 1.0     | fraction of clusters that pass filter (0..1)    |
