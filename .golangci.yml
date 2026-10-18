@@ -1,16 +1,19 @@
 # golangci-lint configuration.
 #
-# Without this file, CI uses the default 5 linters (errcheck, govet,
-# ineffassign, staticcheck, unused). This file is a record of which
-# additional linters the project deliberately does NOT enforce, and
-# the rationale per linter. See commit 321bb71 ("lint: address real
-# findings from a strict golangci-lint pass") for the full context.
-#
-# The goal: when someone enables a stricter linter set in the future,
-# the choices below are already documented in the repo rather than
-# needing to be re-derived.
+# The base linter set is the golangci-lint defaults (errcheck, govet,
+# ineffassign, staticcheck, unused) plus two additions chosen for
+# real signal: gosec (security) and cyclop (complexity backstop).
+# Vulnerability scanning is run separately by govulncheck in the
+# test workflow because golangci-lint v2.14 does not bundle govuln.
+# Anything not on the enable list is off; the disable list below
+# documents the linters the project has considered and rejected.
+# See commit 321bb71 for the original rationale of each disabled
+# linter, and commit b000b0f for the introduction of this file.
 version: "2"
 linters:
+  enable:
+    - gosec
+    - cyclop
   disable:
     # CLI error messages embed the offending value in the text
     # (e.g. "Lanes must be in [1, 999], got 1500"). Sentinel errors
@@ -41,6 +44,13 @@ linters:
     - wsl_v5
 
   settings:
+    cyclop:
+      # The default of 10 is too aggressive for this codebase's
+      # straightforward field-by-field validators. The largest
+      # current function is Validate at 21 (one branch per field);
+      # 25 leaves headroom for one more well-justified complex
+      # function before flagging.
+      max-complexity: 25
     revive:
       # The existing package comment "// Package bclgen: ..." is a
       # standard Go shorthand; the rule wants the more verbose
@@ -48,6 +58,50 @@ linters:
       rules:
         - name: package-comments
           disabled: true
+    gosec:
+      # G115 (int → uint32/byte conversion): every flagged site is
+      # either explicitly bounds-checked (cluster count via
+      # "if n > 0xFFFFFFFF" in writeBCLStream) or inherently safe
+      # (rng.IntN(4) returns [0, 3)). A panic-free conversion is
+      # the intent; gosec's static check doesn't recognize the
+      # bounds guard.
+      #
+      # G122 (filepath.Walk callback race): the only flagged site is
+      # a test that walks the run folder bclgen just generated; no
+      # symlinks exist there. gosec's general TOCTOU concern does
+      # not apply to a deterministic generator's own output.
+      #
+      # G301 (directory perms 0o755): this is the standard permission
+      # for run-folder directories that bcl2fastq expects. Tighter
+      # permissions break the tool's compatibility contract.
+      #
+      # G304 (file inclusion via variable): the file paths come from
+      # spec.RunInfoXMLPath, spec.SampleSheetPath, spec.Out, etc. —
+      # that's the CLI's whole purpose, not an inclusion
+      # vulnerability.
+      #
+      # G306 (WriteFile perms 0o644): standard for read-only data
+      # files in the run folder; 0o600 is for secrets.
+      #
+      # G404 (weak RNG): math/rand/v2 is the correct choice here.
+      # bclgen's determinism guarantee requires a seeded PRNG, not
+      # crypto/rand. Swapping RNGs would change every byte the
+      # tool emits.
+      #
+      # G703 (path traversal in WriteFile): the only flagged site is
+      # copyFile's WriteFile, where the destination is always
+      # constructed as filepath.Join(spec.Out, "RunInfo.xml") or
+      # filepath.Join(spec.Out, "SampleSheet.csv"). The directory
+      # is user-controlled (via -out), but the file name is
+      # hardcoded in source, so there is no traversal vector.
+      excludes:
+        - G115
+        - G122
+        - G301
+        - G304
+        - G306
+        - G404
+        - G703
 
   exclusions:
     rules:

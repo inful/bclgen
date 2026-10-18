@@ -37,6 +37,16 @@ jobs:
             exit 1
           fi
 
+      # Vulnerability scan. The bclgen module is stdlib-only, so this
+      # should always pass today, but the dependency graph can change
+      # (and Go's own stdlib versions are tracked here) so the step
+      # stays in place as a tripwire. golangci-lint does not bundle
+      # govuln, so it runs as a separate tool.
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.14.0
