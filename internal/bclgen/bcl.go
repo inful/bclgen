@@ -121,33 +121,6 @@ func encodeBCL(w io.Writer, n int, clusters []byte) error {
 	})
 }
 
-// readBCL decodes a per-cycle BCL record produced by encodeBCL. Used in tests.
-func readBCL(r io.Reader, wantN int) ([]byte, error) {
-	gr, err := gzip.NewReader(r)
-	if err != nil {
-		return nil, fmt.Errorf("bclgen: gzip reader: %w", err)
-	}
-	defer func() { _ = gr.Close() }()
-	raw, err := io.ReadAll(gr)
-	if err != nil {
-		return nil, fmt.Errorf("bclgen: read gz body: %w", err)
-	}
-	if len(raw) < bclHeaderSize {
-		return nil, fmt.Errorf("bclgen: BCL too short: %d bytes", len(raw))
-	}
-	n := int(binary.LittleEndian.Uint32(raw[:bclHeaderSize]))
-	if n != wantN {
-		return nil, fmt.Errorf("bclgen: BCL header N=%d, want %d", n, wantN)
-	}
-	clusters := raw[bclHeaderSize:]
-	if len(clusters) != n {
-		return nil, fmt.Errorf("bclgen: BCL body length %d, want %d", len(clusters), n)
-	}
-	out := make([]byte, n)
-	copy(out, clusters)
-	return out, nil
-}
-
 // sequenceBase returns the base (A=0, C=1, G=2, T=3) for the given
 // 0-based cycle index, or (0, true) for a no-call ('N'). Returns an error
 // if the sequence is empty or contains an invalid character. The actual
