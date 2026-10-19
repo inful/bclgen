@@ -138,7 +138,7 @@ func sequenceBase(seq string, cycle int) (base byte, noCall bool, err error) {
 	return base, noCall, nil
 }
 
-// writeBCLFile generates a single .bcl.gz file for (lane, cycle, tile) using
+// writeBCLFile generates a single .bcl.gz file for (lane, cycle) using
 // the seeded spec. The cluster bytes are derived from a per-cycle RNG so
 // different cycles with the same spec are not byte-identical, but two runs of
 // the same spec produce identical files.
@@ -150,11 +150,7 @@ func sequenceBase(seq string, cycle int) (base byte, noCall bool, err error) {
 // the sequence (mod length) for ALL clusters, overriding the per-cluster
 // random base. This is the path used for regression testing against
 // bcl2fastq: you can verify that the FASTQ output matches a known pattern.
-//
-// tileNum is accepted for symmetry with the other writers but is not part
-// of the per-cluster RNG: the tile id is encoded in the file name, not in
-// the bytes inside the file.
-func writeBCLFile(out io.Writer, spec RunSpec, lane, cycle, _ /*tileNum*/ int) error {
+func writeBCLFile(out io.Writer, spec RunSpec, lane, cycle int) error {
 	return writeBCLStream(out, spec.Clusters, func(gz io.Writer) error {
 		if spec.Sequence != "" {
 			base, noCall, err := sequenceBase(spec.Sequence, cycle-1)
@@ -209,6 +205,6 @@ func writeBCLFileToDisk(spec RunSpec, lane, cycle, tileNum int) error {
 	name := fmt.Sprintf("s_%d_%04d.bcl.gz", lane, tileNum)
 	path := filepath.Join(dir, name)
 	return writeBinary(path, func(w io.Writer) error {
-		return writeBCLFile(w, spec, lane, cycle, tileNum)
+		return writeBCLFile(w, spec, lane, cycle)
 	})
 }

@@ -116,7 +116,7 @@ func TestEncodeBCL_Deterministic(t *testing.T) {
 		spec.Clusters = 256
 		spec.Seed = 7
 		var buf bytes.Buffer
-		if err := writeBCLFile(&buf, spec, 1, 1, 1101); err != nil {
+		if err := writeBCLFile(&buf, spec, 1, 1); err != nil {
 			t.Fatalf("writeBCLFile: %v", err)
 		}
 		return buf.Bytes()
@@ -206,7 +206,7 @@ func TestEncodeBCL_SequencePattern(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = f.Close() }()
-		if err := writeBCLFile(f, spec, 1, cycle, 1101); err != nil {
+		if err := writeBCLFile(f, spec, 1, cycle); err != nil {
 			t.Fatal(err)
 		}
 		f2, err := os.Open(path)
@@ -252,7 +252,7 @@ func TestEncodeBCL_SequenceNoCall(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }()
-	if err := writeBCLFile(f, spec, 1, 1, 1101); err != nil {
+	if err := writeBCLFile(f, spec, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	f2, _ := os.Open(path)
