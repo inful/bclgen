@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"path/filepath"
 )
 
 // Filter file header version emitted by bclgen. bcl2fastq v2.20
@@ -33,7 +34,7 @@ func writeFilterFile(spec RunSpec, lane, swath, tile int) error {
 	// Directory is pre-created by Generate.precreateDirs.
 	dir := spec.laneDir(lane)
 	tileNum := spec.tileNumber(lane, swath, tile)
-	path := fmt.Sprintf("%s/s_%d_%04d.filter", dir, lane, tileNum)
+	path := filepath.Join(dir, fmt.Sprintf("s_%d_%04d.filter", lane, tileNum))
 	return writeBinary(path, func(w io.Writer) error {
 		return writeFilter(w, spec)
 	})
