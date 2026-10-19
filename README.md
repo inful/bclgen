@@ -25,17 +25,20 @@ a sequencer handy.
 [<out>/SampleSheet.csv]    (only if -sample-sheet is set)
 ```
 
-A 4-digit tile id is `<lane><swath><tile-2digit>` per Illumina convention;
-e.g. `1101` = lane 1, swath 1, tile 01.
+A 4-digit tile id is `<surface><swath><tile-2digit>` per Illumina convention.
+Surface is hardcoded to 1 for `.bcl.gz` (see `-surfaces`); lane is a
+separate `s_<lane>_` prefix in the file name. Example: lane 1, swath 1,
+tile 1 → file `s_1_1101.bcl.gz` (tile id 1101).
 
 The on-disk byte layout follows the bcl2fastq v2.20 software guide:
 
 - **BCL file** (Table 1): `gzip( uint32_LE(N) || N cluster bytes )`,
   where each cluster byte is `bits 0..1 = base [A=0, C=1, G=2, T=3]`,
   `bits 2..7 = Q-score << 2`, and `0x00` = no call.
-- **Filter file** (Table 3): `uint32_LE(0) || uint32_LE(version=2) ||
+- **Filter file** (Table 3): `uint32_LE(0) || uint32_LE(version=3) ||
   uint32_LE(N) || N bytes, bit 0 = pass-filter`.
-- **Locs file**: N × `(int16_LE X, int16_LE Y)`.
+- **Locs file**: 12-byte header `(uint32_LE 1, float32_LE 1.0,
+  uint32_LE N)` followed by N records of `(float32_LE X, float32_LE Y)`.
 - **RunInfo.xml**: one `<Read>`, `<FlowcellLayout>` with
   `LaneCount`/`SurfaceCount`/`SwathCount`/`TileCount`.
 
@@ -47,9 +50,14 @@ your `$PATH`.
 
 ### Docker
 
+Build the image locally (the project doesn't publish a prebuilt image —
+see the disabled `dockers:` section in `.goreleaser.yml` for the
+reason):
+
 ```sh
-docker pull ghcr.io/inful/bclgen
-docker run --rm -v "$PWD:/out" ghcr.io/inful/bclgen \
+CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bclgen ./cmd/bclgen
+docker build -t bclgen:dev .
+docker run --rm -v "$PWD:/out" bclgen:dev \
     -out /out/mockrun -cycles 26 -clusters 1000 -seed 1
 ```
 
@@ -138,7 +146,7 @@ every cluster. This is what makes golden-file and snapshot tests work.
 go test ./...
 ```
 
-23 unit + integration tests cover:
+The unit + integration tests cover:
 
 - cluster byte encoding / round-trip
 - BCL.gz layout and round-trip
@@ -149,6 +157,15 @@ go test ./...
 - validation errors
 - `PFRate == 0` semantics ("no PF" is not silently bumped to 1.0)
 - determinism of an entire run folder
+
+bcl2fastq compatibility is verified by an end-to-end test that runs
+the official `umccr/bcl2fastq:v2.20.0.422` Docker image against a
+generated run folder. Requires Docker and downloads ~280 MB on first
+run; build-tagged so it doesn't run in `go test ./...`:
+
+```sh
+go test -tags bcl2fastq_e2e ./internal/bclgen/
+```
 
 ## Library use
 
