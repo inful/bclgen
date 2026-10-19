@@ -276,3 +276,78 @@ func TestValidate_RejectsBadSequence(t *testing.T) {
 		t.Error("expected Validate to reject sequence with X")
 	}
 }
+
+// TestParseBase pins the single source of truth for the Illumina base
+// alphabet. spec.Validate and sequenceBase both delegate here; a bug in
+// this function would silently corrupt every BCL byte in the universe
+// while still passing byte-equality determinism tests (because the
+// change would be consistent across runs).
+func TestParseBase(t *testing.T) {
+	cases := []struct {
+		ch       byte
+		wantBase byte
+		wantNo   bool
+		wantOK   bool
+	}{
+		// Valid bases — both cases.
+		{'A', BaseA, false, true}, {'a', BaseA, false, true},
+		{'C', BaseC, false, true}, {'c', BaseC, false, true},
+		{'G', BaseG, false, true}, {'g', BaseG, false, true},
+		{'T', BaseT, false, true}, {'t', BaseT, false, true},
+		{'N', 0, true, true}, {'n', 0, true, true},
+		// Invalid characters — the four categories that real users hit.
+		{'X', 0, false, false}, // other letter (the TestValidate case)
+		{'B', 0, false, false}, // IUPAC ambiguity code
+		{'U', 0, false, false}, // RNA — explicitly out of scope
+		{'0', 0, false, false}, // digit
+		{' ', 0, false, false}, // whitespace
+	}
+	for _, c := range cases {
+		base, noCall, ok := parseBase(c.ch)
+		if base != c.wantBase || noCall != c.wantNo || ok != c.wantOK {
+			t.Errorf("parseBase(%q) = (%#x, %v, %v), want (%#x, %v, %v)",
+				c.ch, base, noCall, ok, c.wantBase, c.wantNo, c.wantOK)
+		}
+	}
+}
+
+// TestWriteRandomClusters_NoCallRate_ShortCircuit pins the RNG call order
+// in writeRandomClusters. The 'noCallRate > 0 &&' short-circuit decides
+// whether Float64 is consumed per cluster: with noCallRate==0 the RNG
+// only consumes IntN(4); with noCallRate>0 it consumes Float64 (and
+// sometimes IntN(4) too). Getting the condition order wrong would
+// silently break determinism — same seed would produce different bytes
+// when noCallRate changes — while still passing the current
+// TestGenerate_Deterministic because that test only exercises
+// noCallRate==0.
+func TestWriteRandomClusters_NoCallRate_ShortCircuit(t *testing.T) {
+	mk := func(noCallRate float64) []byte {
+		spec := DefaultSpec()
+		spec.Clusters = 256
+		spec.NoCallRate = noCallRate
+		spec.Seed = 1
+		var buf bytes.Buffer
+		if err := writeRandomClusters(&buf, spec.Clusters, spec.QScore,
+			noCallRate, spec.cycleRng(1, 1)); err != nil {
+			t.Fatalf("writeRandomClusters: %v", err)
+		}
+		return buf.Bytes()
+	}
+	// Two calls with the same seed + same noCallRate produce the same
+	// bytes (within-stream determinism).
+	a := mk(0)
+	b := mk(0)
+	if !bytes.Equal(a, b) {
+		t.Errorf("noCallRate=0: two calls with the same seed produced different bytes")
+	}
+	c := mk(0.5)
+	d := mk(0.5)
+	if !bytes.Equal(c, d) {
+		t.Errorf("noCallRate=0.5: two calls with the same seed produced different bytes")
+	}
+	// Different noCallRate → different byte output (the RNG state diverges
+	// because the Float64 calls change the consumption pattern).
+	if bytes.Equal(a, c) {
+		t.Errorf("noCallRate=0 and noCallRate=0.5 produced identical bytes — the short-circuit is broken")
+	}
+}
