@@ -150,28 +150,37 @@ func (s RunSpec) fillDefaults() RunSpec {
 // that overflow the format produce file names bcl2fastq v2.20 won't match.
 func (s RunSpec) Validate() error {
 	if s.Out == "" {
-		return fmt.Errorf("Out is required")
+		return fmt.Errorf("spec.Out is required")
 	}
 	if s.Lanes < 1 || s.Lanes > 999 {
-		return fmt.Errorf("Lanes must be in [1, 999], got %d", s.Lanes)
+		return fmt.Errorf("spec.Lanes must be in [1, 999], got %d", s.Lanes)
 	}
 	if s.Surfaces != 1 && s.Surfaces != 2 {
-		return fmt.Errorf("Surfaces must be 1 or 2, got %d", s.Surfaces)
+		return fmt.Errorf("spec.Surfaces must be 1 or 2, got %d", s.Surfaces)
 	}
 	if s.Swaths < 1 || s.Swaths > 9 {
-		return fmt.Errorf("Swaths must be in [1, 9], got %d", s.Swaths)
+		return fmt.Errorf("spec.Swaths must be in [1, 9], got %d", s.Swaths)
 	}
 	if s.Tiles < 1 || s.Tiles > 99 {
-		return fmt.Errorf("Tiles must be in [1, 99], got %d", s.Tiles)
+		return fmt.Errorf("spec.Tiles must be in [1, 99], got %d", s.Tiles)
 	}
 	if s.Cycles < 1 {
-		return fmt.Errorf("Cycles must be >= 1, got %d", s.Cycles)
+		return fmt.Errorf("spec.Cycles must be >= 1, got %d", s.Cycles)
 	}
 	if s.Clusters < 1 {
-		return fmt.Errorf("Clusters must be >= 1, got %d", s.Clusters)
+		return fmt.Errorf("spec.Clusters must be >= 1, got %d", s.Clusters)
+	}
+	// The per-tile cluster count is written as a uint32 in every file
+	// header (BCL Table 1, filter Table 3, locs PositionsFile.cpp), so
+	// anything above 0xFFFFFFFF cannot be represented. Checked here
+	// rather than left to writeBCLStream because locs and filter are
+	// written before it and would emit Clusters*8 and Clusters*1
+	// bytes of unrepresentable data first.
+	if s.Clusters > 0xFFFFFFFF {
+		return fmt.Errorf("spec.Clusters must be <= %d (32-bit file header), got %d", int64(0xFFFFFFFF), s.Clusters)
 	}
 	if s.PFRate < 0 || s.PFRate > 1 {
-		return fmt.Errorf("PFRate must be in [0,1], got %v", s.PFRate)
+		return fmt.Errorf("spec.PFRate must be in [0,1], got %v", s.PFRate)
 	}
 	if s.NoCallRate < 0 || s.NoCallRate > 1 {
 		return fmt.Errorf("NoCallRate must be in [0,1], got %v", s.NoCallRate)

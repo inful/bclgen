@@ -184,6 +184,19 @@ func TestGenerate_HandlesValidationErrors(t *testing.T) {
 	if err := Generate(spec); err == nil {
 		t.Errorf("expected validation error for Tiles=100 (would overflow %%04d tile id)")
 	}
+	// Above the 32-bit file-header limit: Generate must reject this
+	// before writing anything, not after writing Clusters*9 bytes.
+	// Out deliberately does not exist yet, so we can assert that
+	// nothing was created on the way to failing.
+	notYet := filepath.Join(t.TempDir(), "run")
+	spec = DefaultSpec()
+	spec.Out = notYet
+	spec.Clusters = 0x100000000
+	if err := Generate(spec); err == nil {
+		t.Errorf("expected validation error for Clusters above the 32-bit header limit")
+	} else if _, statErr := os.Stat(notYet); statErr == nil {
+		t.Errorf("Validate rejected Clusters but the output directory was already created")
+	}
 	spec = DefaultSpec()
 	spec.Out = ""
 	if err := Generate(spec); err == nil {

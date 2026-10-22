@@ -84,7 +84,7 @@ func decodeClusterByte(b byte) (base byte, q int, noCall bool) {
 // deterministic given input bytes.
 func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
 	if n > 0xFFFFFFFF {
-		return fmt.Errorf("N=%d exceeds 32-bit header", n)
+		return fmt.Errorf("cluster count N=%d exceeds the 32-bit header limit", n)
 	}
 	var hdr [bclHeaderSize]byte
 	binary.LittleEndian.PutUint32(hdr[:], uint32(n))

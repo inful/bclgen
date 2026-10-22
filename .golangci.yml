@@ -10,6 +10,14 @@
 # See commit 321bb71 for the original rationale of each disabled
 # linter, and commit b000b0f for the introduction of this file.
 version: "2"
+
+# Show every issue, not just the first few of each kind. The defaults
+# (max-same-issues: 3) hid 6 of 9 ST1005 findings during the error-prefix
+# cleanup, which made it look like a 3-site problem when it was 9.
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
 linters:
   enable:
     - gosec
