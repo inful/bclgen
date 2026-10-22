@@ -95,8 +95,6 @@ func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
 	return nil
 }
 
-
-
 // sequenceBase returns the base (A=0, C=1, G=2, T=3) for the given
 // 0-based cycle index, or (0, true) for a no-call ('N'). Returns an error
 // if the sequence is empty or contains an invalid character. The actual

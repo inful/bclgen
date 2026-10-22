@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -80,11 +81,16 @@ func contains(s, sub string) bool {
 }
 
 func TestRunInfo_OverrideFile(t *testing.T) {
-	// When the user supplies a RunInfo.xml, it should be copied in verbatim.
+	// When the user supplies a RunInfo.xml whose layout matches the spec, it
+	// is copied in verbatim.
 	out := t.TempDir()
 	overrideDir := t.TempDir()
 	override := filepath.Join(overrideDir, "RunInfo.xml")
-	if err := os.WriteFile(override, []byte(xml.Header+`<RunInfo Version="3"><Run Id="USER"/></RunInfo>`), 0o644); err != nil {
+	body := xml.Header + `<RunInfo Version="3"><Run Id="USER">` +
+		`<Reads><Read Number="1" NumCycles="26" IsIndexedRead="N"/></Reads>` +
+		`<FlowcellLayout LaneCount="1" SurfaceCount="1" SwathCount="1" TileCount="1"/>` +
+		`</Run></RunInfo>`
+	if err := os.WriteFile(override, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	spec := DefaultSpec()
@@ -104,5 +110,99 @@ func TestRunInfo_OverrideFile(t *testing.T) {
 	}
 	if ri.Version != "3" || ri.Run.RunID != "USER" {
 		t.Errorf("user-supplied RunInfo was not used: %s", got)
+	}
+}
+
+// TestRunInfo_OverrideMismatchRejected pins the cross-check: bcl2fastq reads
+// the lane/swath/tile/cycle counts out of RunInfo.xml and iterates them, so a
+// hand-written RunInfo that disagrees with the spec describes data bclgen
+// never writes. Generate must refuse rather than report success.
+func TestRunInfo_OverrideMismatchRejected(t *testing.T) {
+	cases := []struct {
+		name     string
+		xml      string
+		wantWord string
+	}{
+		{
+			name: "lane count",
+			xml: `<RunInfo Version="2"><Run Id="U">` +
+				`<Reads><Read Number="1" NumCycles="26"/></Reads>` +
+				`<FlowcellLayout LaneCount="8" SurfaceCount="1" SwathCount="1" TileCount="1"/>` +
+				`</Run></RunInfo>`,
+			wantWord: "LaneCount",
+		},
+		{
+			name: "tile count",
+			xml: `<RunInfo Version="2"><Run Id="U">` +
+				`<Reads><Read Number="1" NumCycles="26"/></Reads>` +
+				`<FlowcellLayout LaneCount="1" SurfaceCount="1" SwathCount="1" TileCount="16"/>` +
+				`</Run></RunInfo>`,
+			wantWord: "TileCount",
+		},
+		{
+			name: "cycle count",
+			xml: `<RunInfo Version="2"><Run Id="U">` +
+				`<Reads><Read Number="1" NumCycles="150"/></Reads>` +
+				`<FlowcellLayout LaneCount="1" SurfaceCount="1" SwathCount="1" TileCount="1"/>` +
+				`</Run></RunInfo>`,
+			wantWord: "NumCycles",
+		},
+		{
+			name: "multiple reads",
+			xml: `<RunInfo Version="2"><Run Id="U">` +
+				`<Reads><Read Number="1" NumCycles="26"/><Read Number="2" NumCycles="8"/></Reads>` +
+				`<FlowcellLayout LaneCount="1" SurfaceCount="1" SwathCount="1" TileCount="1"/>` +
+				`</Run></RunInfo>`,
+			wantWord: "Read count",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			override := filepath.Join(t.TempDir(), "RunInfo.xml")
+			if err := os.WriteFile(override, []byte(xml.Header+c.xml), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			spec := DefaultSpec()
+			spec.Out = filepath.Join(t.TempDir(), "run")
+			spec.RunInfoXMLPath = override
+
+			err := Generate(spec)
+			if err == nil {
+				t.Fatalf("Generate accepted a RunInfo whose %s disagrees with the spec", c.wantWord)
+			}
+			if !strings.Contains(err.Error(), c.wantWord) {
+				t.Errorf("error should name %s, got: %v", c.wantWord, err)
+			}
+			// Nothing should have been written.
+			if _, statErr := os.Stat(spec.Out); statErr == nil {
+				t.Errorf("output directory was created despite the mismatch")
+			}
+		})
+	}
+}
+
+// TestRunInfo_OverrideUnparseableIsCopied documents that -runinfo still means
+// full manual control: a file bclgen cannot parse as RunInfo.xml is warned
+// about and copied verbatim rather than rejected.
+func TestRunInfo_OverrideUnparseableIsCopied(t *testing.T) {
+	out := t.TempDir()
+	override := filepath.Join(t.TempDir(), "RunInfo.xml")
+	const raw = `this is not xml at all`
+	if err := os.WriteFile(override, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec := DefaultSpec()
+	spec.Out = out
+	spec.RunInfoXMLPath = override
+
+	if err := Generate(spec); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(out, "RunInfo.xml"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != raw {
+		t.Errorf("unparseable RunInfo was not copied verbatim: %q", got)
 	}
 }

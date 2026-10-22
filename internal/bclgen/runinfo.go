@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // runInfo mirrors the RunInfo.xml schema that bcl2fastq v2.20 reads.
@@ -50,8 +51,10 @@ type runInfoLayout struct {
 
 // writeRunInfo emits <Out>/RunInfo.xml describing the run.
 //
-// If spec.RunInfoXMLPath is set, that file is copied in instead of generating
-// one — useful when the user wants full control over read structure.
+// If spec.RunInfoXMLPath is set, that file is used instead of generating one —
+// useful when the user wants full control over read structure. Generate has
+// already cross-checked it against the spec (checkRunInfoOverride), before
+// creating any directories.
 func writeRunInfo(spec RunSpec) error {
 	if spec.RunInfoXMLPath != "" {
 		return copyFile(spec.RunInfoXMLPath, filepath.Join(spec.Out, "RunInfo.xml"))
@@ -92,6 +95,66 @@ func writeRunInfo(spec RunSpec) error {
 	path := filepath.Join(spec.Out, "RunInfo.xml")
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
+// checkRunInfoOverride parses the user-supplied RunInfo.xml and verifies that
+// the lane/swath/tile/cycle counts it declares match what Generate is about to
+// write. Without this a hand-written RunInfo claiming 8 lanes next to a spec
+// of 1 lane produces a folder bcl2fastq cannot read, and bclgen reports
+// success.
+//
+// A malformed or unexpected RunInfo is only warned about, never rejected: the
+// point of -runinfo is full manual control, and refusing to run would defeat
+// it. Only a clear disagreement between the declared layout and the generated
+// data is an error.
+func checkRunInfoOverride(spec RunSpec) error {
+	if spec.RunInfoXMLPath == "" {
+		return nil // generated RunInfo always matches by construction
+	}
+	body, err := os.ReadFile(spec.RunInfoXMLPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", spec.RunInfoXMLPath, err)
+	}
+	var ri runInfo
+	if err := xml.Unmarshal(body, &ri); err != nil {
+		// Not parseable as RunInfo — the user is on their own.
+		fmt.Fprintf(os.Stderr, "bclgen: warning: %s is not parseable as RunInfo.xml (%v); copying it verbatim\n",
+			spec.RunInfoXMLPath, err)
+		return nil
+	}
+
+	var mismatches []string
+	want := map[string][2]int{
+		"LaneCount":    {ri.Run.Layout.LaneCount, spec.Lanes},
+		"SurfaceCount": {ri.Run.Layout.SurfaceCount, spec.Surfaces},
+		"SwathCount":   {ri.Run.Layout.SwathCount, spec.Swaths},
+		"TileCount":    {ri.Run.Layout.TileCount, spec.Tiles},
+	}
+	for _, name := range []string{"LaneCount", "SurfaceCount", "SwathCount", "TileCount"} {
+		if got, exp := want[name][0], want[name][1]; got != exp {
+			mismatches = append(mismatches, fmt.Sprintf("%s: RunInfo says %d, spec says %d", name, got, exp))
+		}
+	}
+	// bclgen only ever emits a single <Read>, so require the override to
+	// declare exactly one read with the spec's cycle count.
+	switch reads := ri.Run.Reads.Reads; len(reads) {
+	case 0:
+		mismatches = append(mismatches, "RunInfo declares no <Read> but bclgen generates 1")
+	case 1:
+		if reads[0].NumCycles != spec.Cycles {
+			mismatches = append(mismatches,
+				fmt.Sprintf("NumCycles: RunInfo says %d, spec says %d", reads[0].NumCycles, spec.Cycles))
+		}
+	default:
+		mismatches = append(mismatches,
+			fmt.Sprintf("Read count: RunInfo declares %d reads but bclgen generates 1", len(reads)))
+	}
+
+	if len(mismatches) > 0 {
+		return fmt.Errorf("%s does not match the spec: %s (bcl2fastq reads the layout from RunInfo.xml, so the generated data would not match it)",
+			spec.RunInfoXMLPath, strings.Join(mismatches, "; "))
 	}
 	return nil
 }

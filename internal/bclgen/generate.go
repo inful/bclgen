@@ -25,6 +25,12 @@ func Generate(spec RunSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
+	// Cross-check a hand-written RunInfo.xml before creating anything, so a
+	// layout that disagrees with the spec fails without leaving a directory
+	// behind.
+	if err := checkRunInfoOverride(spec); err != nil {
+		return err
+	}
 	if err := ensureEmptyDir(spec.Out); err != nil {
 		return err
 	}
