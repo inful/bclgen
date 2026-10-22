@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -83,8 +84,60 @@ func TestGenerate_RefusesNonEmptyDir(t *testing.T) {
 	}
 	spec := DefaultSpec()
 	spec.Out = out
-	if err := Generate(spec); err == nil {
+	err := Generate(spec)
+	if err == nil {
 		t.Fatalf("expected error when Out is non-empty, got nil")
+	}
+	// The refusal should point at the escape hatch.
+	if !strings.Contains(err.Error(), "-force") {
+		t.Errorf("refusal should mention -force, got: %v", err)
+	}
+	// And it must not have touched the existing content.
+	if data, readErr := os.ReadFile(filepath.Join(out, "hello.txt")); readErr != nil || string(data) != "nope" {
+		t.Errorf("existing content was modified by a refused run: %q %v", data, readErr)
+	}
+}
+
+// TestGenerate_ForceReplacesPartialOutput covers the retry path: a run that
+// died partway leaves a partial folder, and without -force every subsequent
+// retry fails with "is not empty" until the user deletes it by hand.
+func TestGenerate_ForceReplacesPartialOutput(t *testing.T) {
+	out := t.TempDir()
+	spec := DefaultSpec()
+	spec.Out = out
+	spec.Cycles = 2
+	spec.Clusters = 8
+	if err := Generate(spec); err != nil {
+		t.Fatalf("first Generate: %v", err)
+	}
+	// Simulate a crash: drop one file and leave a stray from the partial run.
+	if err := os.Remove(filepath.Join(out, "RunInfo.xml")); err != nil {
+		t.Fatal(err)
+	}
+	stray := filepath.Join(out, "Data", "Intensities", "BaseCalls", "L001", "C1.1", "stale.bcl.gz")
+	if err := os.WriteFile(stray, []byte("leftover"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without Force the retry is refused.
+	if err := Generate(spec); err == nil {
+		t.Fatalf("expected retry without Force to be refused")
+	}
+
+	// With Force the partial folder is replaced.
+	spec.Force = true
+	if err := Generate(spec); err != nil {
+		t.Fatalf("Generate with Force: %v", err)
+	}
+	if _, err := os.Stat(stray); err == nil {
+		t.Errorf("Force left a stale file behind at %s", stray)
+	}
+	if _, err := os.Stat(filepath.Join(out, "RunInfo.xml")); err != nil {
+		t.Errorf("Force did not regenerate RunInfo.xml: %v", err)
+	}
+	// And the result is a complete, valid run folder.
+	if err := fileNonEmpty(t, filepath.Join(out, "Data", "Intensities", "BaseCalls", "L001", "C2.1", "s_1_1101.bcl.gz")); err != nil {
+		t.Errorf("%v", err)
 	}
 }
 

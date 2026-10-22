@@ -110,6 +110,14 @@ Then point bcl2fastq at the folder:
 bcl2fastq --runfolder-dir /tmp/mockrun --output-dir /tmp/fastq_out
 ```
 
+If a run fails partway (disk full, quota, a permissions error), the
+output directory is left partially written and every retry is refused.
+Pass `-force` to replace it:
+
+```sh
+bclgen -out /tmp/mockrun -cycles 26 -clusters 1000 -seed 1 -force
+```
+
 ## Flags
 
 | Flag              | Default | Notes                                           |
@@ -131,7 +139,8 @@ bcl2fastq --runfolder-dir /tmp/mockrun --output-dir /tmp/fastq_out
 | `-flowcell`       | synthetic | RunInfo `<Flowcell>`                          |
 | `-runinfo`        | (none)  | path to a hand-written RunInfo.xml to copy in   |
 | `-sample-sheet`   | (none)  | path to a SampleSheet.csv to copy into the root |
-| `-progress`       |         | print a one-line progress update to stderr every ~2% of tiles |
+| `-progress`       |         | print a progress line to stderr every ~2% of tiles (one line per tile under 50 tiles) |
+| `-force`          |         | delete `-out` and everything under it first; needed to retry a run that failed partway |
 | `-help`           |         | show help                                       |
 
 ## Determinism
@@ -139,6 +148,17 @@ bcl2fastq --runfolder-dir /tmp/mockrun --output-dir /tmp/fastq_out
 The same `-seed` and the same other flags produce **byte-identical** output
 on every run — the PRNG drives base call, Q-score, X, Y, and PF bit for
 every cluster. This is what makes golden-file and snapshot tests work.
+
+Two seeding details are worth knowing:
+
+- **Every tile gets its own data.** Filter and locs files are seeded from
+  `(lane, swath, tile)`, and BCL files from `(lane, cycle)`. Two tiles of the
+  same lane therefore have different pass-filter patterns and different
+  cluster coordinates, as in a real run. Note that BCL bytes are shared across
+  tiles within one `(lane, cycle)` — use `-sequence` if you need bases that
+  differ per tile.
+- **`-date` defaults to today.** A run's `RunInfo.xml` embeds the date, so
+  byte-identical output across days requires passing `-date YYMMDD`.
 
 ## Tests
 

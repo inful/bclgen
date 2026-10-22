@@ -31,7 +31,7 @@ func Generate(spec RunSpec) error {
 	if err := checkRunInfoOverride(spec); err != nil {
 		return err
 	}
-	if err := ensureEmptyDir(spec.Out); err != nil {
+	if err := ensureOutputDir(spec); err != nil {
 		return err
 	}
 
@@ -109,18 +109,35 @@ func precreateDirs(spec RunSpec) error {
 	return nil
 }
 
-// ensureEmptyDir creates spec.Out if missing and errors if it already has
-// contents. bclgen refuses to scribble over an existing run folder.
-func ensureEmptyDir(path string) error {
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", path, err)
+// ensureOutputDir prepares spec.Out for writing.
+//
+// By default bclgen refuses to scribble over a directory that already has
+// contents in it. With spec.Force it removes whatever is there first, which is
+// what makes a retry after a crashed run possible: a mid-run failure (disk
+// full, quota, a permissions error on one cycle directory) leaves a partial
+// folder behind, and without -force every retry fails with "is not empty"
+// until the user removes the directory by hand.
+//
+// Force only ever deletes inside spec.Out. Out is the one path the user named
+// explicitly, and everything bclgen writes lives under it.
+func ensureOutputDir(spec RunSpec) error {
+	if spec.Force {
+		if err := os.RemoveAll(spec.Out); err != nil {
+			return fmt.Errorf("remove %s: %w", spec.Out, err)
+		}
 	}
-	entries, err := os.ReadDir(path)
+	if err := os.MkdirAll(spec.Out, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", spec.Out, err)
+	}
+	if spec.Force {
+		return nil
+	}
+	entries, err := os.ReadDir(spec.Out)
 	if err != nil {
-		return fmt.Errorf("readdir %s: %w", path, err)
+		return fmt.Errorf("readdir %s: %w", spec.Out, err)
 	}
 	if len(entries) > 0 {
-		return fmt.Errorf("%s is not empty (refusing to overwrite)", path)
+		return fmt.Errorf("%s is not empty (refusing to overwrite; pass -force to replace it)", spec.Out)
 	}
 	return nil
 }

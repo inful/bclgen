@@ -73,6 +73,12 @@ type RunSpec struct {
 	// Progress, if true, prints a one-line progress update to stderr
 	// every progressStep tiles. Default false.
 	Progress bool
+
+	// Force, if true, removes spec.Out (recursively) before generating
+	// instead of refusing a non-empty directory. Without it, a run that
+	// failed partway leaves a partial folder that every retry rejects
+	// until the user deletes it by hand. Default false.
+	Force bool
 }
 
 // DefaultSpec returns a RunSpec that produces a tiny but valid run folder.

@@ -45,6 +45,10 @@ Output layout (HiSeq / MiSeq *.bcl.gz convention):
       C<cycle>.<surface>/s_<lane>_<tile>.bcl.gz
 
 Same -seed + same other flags ⇒ byte-identical output.
+
+bclgen refuses to write into a non-empty -out. If a run failed partway
+(disk full, quota, a permissions error), pass -force to replace the
+partial folder and retry; everything under -out is deleted first.
 `)
 	}
 
@@ -73,7 +77,8 @@ Same -seed + same other flags ⇒ byte-identical output.
 		runInfoPath = fs.String("runinfo", "", "path to a hand-written RunInfo.xml to copy in instead of generating one")
 		sampleSheet = fs.String("sample-sheet", "", "path to a SampleSheet.csv to copy into the run root")
 		sequence    = fs.String("sequence", "", "per-cycle base pattern (e.g. \"ACGT\" or \"ACGTACGTN\"). When set, cycle i uses the i'th character (mod length) for ALL clusters, overriding random bases. Allowed: A/C/G/T/N (case-insensitive).")
-		progress    = fs.Bool("progress", false, "print a one-line progress update to stderr every ~2% of tiles completed")
+		progress    = fs.Bool("progress", false, "print a progress line to stderr every ~2% of tiles (one line per tile for runs under 50 tiles)")
+		force       = fs.Bool("force", false, "delete -out and everything under it before generating; needed to retry a run that failed partway")
 		help        = fs.Bool("help", false, "show help")
 	)
 	if err := fs.Parse(args); err != nil {
@@ -108,6 +113,7 @@ Same -seed + same other flags ⇒ byte-identical output.
 		SampleSheetPath: *sampleSheet,
 		Sequence:        *sequence,
 		Progress:        *progress,
+		Force:           *force,
 	}
 	if err := bclgen.Generate(spec); err != nil {
 		return err
