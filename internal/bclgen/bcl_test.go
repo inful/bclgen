@@ -87,7 +87,9 @@ func TestEncodeBCL_RoundTrip(t *testing.T) {
 	spec.QScore = 30
 	spec.Seed = 42
 
-	rng := spec.rng()
+	// Arbitrary but seeded cluster bytes; this test exercises the
+	// encodeBCL/readBCL round-trip, not the RNG's exact output.
+	rng := spec.cycleRng(1, 1)
 	want := make([]byte, spec.Clusters)
 	for i := range want {
 		base := byte(rng.IntN(4))

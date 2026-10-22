@@ -198,22 +198,32 @@ func (s RunSpec) Validate() error {
 	return nil
 }
 
-// rng constructs a fresh seeded RNG for deterministic generation. The state
-// is the same for every call — use this for files that are written ONCE per
-// tile (filter, locs), so two cycles within the same tile get the same data.
+// tileRng constructs an RNG whose state varies by lane, swath and tile. Two
+// calls with different (lane, swath, tile) produce different sequences; two
+// calls with the same triple and the same spec.Seed produce the same sequence.
 //
-// For files that are written ONCE PER CYCLE per tile (BCL), use cycleRng so
-// each cycle gets different (but still deterministic) data.
-func (s RunSpec) rng() *rand.Rand {
-	return rand.New(rand.NewPCG(s.Seed, s.Seed^0x9E3779B97F4A7C15))
+// Used for the once-per-tile files (filter, locs) so each tile gets its own
+// pass-filter pattern and its own cluster coordinates. Seeding these from
+// spec.Seed alone — as an earlier revision did — made every .filter and .locs
+// file in a run byte-identical, which -swaths and -tiles then only multiplied
+// by file name.
+func (s RunSpec) tileRng(lane, swath, tile int) *rand.Rand {
+	// Mix lane, swath and tile into both PCG seed halves. Constants from
+	// SplitMix64 / xxhash — the exact values don't matter, only that they
+	// are large odd numbers with good avalanche behavior.
+	l, w, t := uint64(lane), uint64(swath), uint64(tile)
+	seed1 := s.Seed ^ l*0x9E3779B97F4A7C15 ^ w*0xBF58476D1CE4E5B9 ^ t*0x94D049BB133111EB
+	seed2 := s.Seed*0xC6BC279692B5C323 ^ l*0x52DCE729 ^ w*0xD6E8FEB86659FD93 ^ t*0x2545F4914F6CDD1D
+	return rand.New(rand.NewPCG(seed1, seed2))
 }
 
 // cycleRng constructs an RNG whose state varies by lane and cycle. Two calls
 // with different cycles produce different sequences; two calls with the same
 // (lane, cycle) and the same spec.Seed produce the same sequence.
 //
-// Used for BCL files so that the 6 cycles in a run don't all come out
-// byte-identical.
+// Used for BCL files so that the cycles in a run don't all come out
+// byte-identical. Like tileRng it does not vary by tile, so every tile of a
+// given (lane, cycle) shares a byte-identical BCL — see generate.go.
 func (s RunSpec) cycleRng(lane, cycle int) *rand.Rand {
 	// Mix lane and cycle into both PCG seed halves. Constants from
 	// SplitMix64 / xxhash — the exact values don't matter, only that they

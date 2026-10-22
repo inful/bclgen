@@ -36,7 +36,7 @@ func writeFilterFile(spec RunSpec, lane, swath, tile int) error {
 	tileNum := spec.tileNumber(lane, swath, tile)
 	path := filepath.Join(dir, fmt.Sprintf("s_%d_%04d.filter", lane, tileNum))
 	return writeBinary(path, func(w io.Writer) error {
-		return writeFilter(w, spec)
+		return writeFilter(w, spec, lane, swath, tile)
 	})
 }
 
@@ -45,7 +45,10 @@ func writeFilterFile(spec RunSpec, lane, swath, tile int) error {
 // At PFRate >= 1.0 the RNG is skipped entirely. The body streams in 4 KiB
 // chunks (matching BCL and locs) so memory use stays bounded for large
 // Clusters.
-func writeFilter(w io.Writer, spec RunSpec) error {
+//
+// lane, swath and tile select the seed via tileRng so every tile gets its own
+// pass-filter pattern.
+func writeFilter(w io.Writer, spec RunSpec, lane, swath, tile int) error {
 	var hdr [12]byte
 	binary.LittleEndian.PutUint32(hdr[0:4], 0)                 // marker: header follows
 	binary.LittleEndian.PutUint32(hdr[4:8], filterFileVersion) // version = 3
@@ -64,7 +67,7 @@ func writeFilter(w io.Writer, spec RunSpec) error {
 			return nil
 		})
 	}
-	rng := spec.rng()
+	rng := spec.tileRng(lane, swath, tile)
 	return streamChunks(w, spec.Clusters, func(buf []byte) error {
 		for i := range buf {
 			if rng.Float64() < spec.PFRate {

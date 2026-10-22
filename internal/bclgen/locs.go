@@ -38,14 +38,17 @@ func writeLocsFile(spec RunSpec, lane, swath, tile int) error {
 	tileNum := spec.tileNumber(lane, swath, tile)
 	path := filepath.Join(dir, fmt.Sprintf("s_%d_%04d.locs", lane, tileNum))
 	return writeBinary(path, func(w io.Writer) error {
-		return writeLocs(w, spec)
+		return writeLocs(w, spec, lane, swath, tile)
 	})
 }
 
 // writeLocs writes the per-tile locs payload to w: a 12-byte header
 // (field1=1, field2=1.0, N) followed by N records of { float32 X, float32 Y }.
 // RNG calls happen in ascending cluster order, preserving determinism.
-func writeLocs(w io.Writer, spec RunSpec) error {
+//
+// lane, swath and tile select the seed via tileRng so every tile gets its own
+// cluster coordinates.
+func writeLocs(w io.Writer, spec RunSpec, lane, swath, tile int) error {
 	var hdr [12]byte
 	binary.LittleEndian.PutUint32(hdr[0:4], 1)                     // field1 = 1
 	binary.LittleEndian.PutUint32(hdr[4:8], math.Float32bits(1.0)) // field2 = 1.0
@@ -58,7 +61,7 @@ func writeLocs(w io.Writer, spec RunSpec) error {
 	// (4096-byte) chunks so memory is bounded for large Clusters.
 	const chunkRecords = 512
 	chunk := make([]locsRecord, chunkRecords)
-	rng := spec.rng()
+	rng := spec.tileRng(lane, swath, tile)
 	remaining := spec.Clusters
 	for remaining > 0 {
 		n := min(remaining, len(chunk))
