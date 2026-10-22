@@ -103,11 +103,16 @@ func DefaultSpec() RunSpec {
 
 // fillDefaults replaces zero-valued fields with their defaults. Returns a copy.
 //
-// Float fields (PFRate, NoCallRate) are intentionally NOT reset to defaults
-// when zero: 0 is a valid, useful value ("no filter" / "no no-calls") and
-// differs from "unset". Library users get the documented default by
-// starting from DefaultSpec(); Generate calls fillDefaults so a hand-built
-// RunSpec with missing fields still works.
+// Do not add PFRate or NoCallRate to the list below. Both are float64 and 0 is
+// a meaningful value for them — PFRate 0 means "no cluster passes filter",
+// NoCallRate 0 means "no no-calls" — so zeroing must survive as the caller's
+// intent rather than being read back as "unset". Every other field is an int
+// or a string whose zero value is genuinely unset. TestGenerate_AcceptsZeroPFRate
+// pins this.
+//
+// Library users get the documented defaults by starting from DefaultSpec();
+// Generate calls fillDefaults so a hand-built RunSpec with missing fields
+// still works.
 func (s RunSpec) fillDefaults() RunSpec {
 	d := DefaultSpec()
 	if s.Lanes == 0 {
