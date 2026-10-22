@@ -60,15 +60,6 @@ func packClusterByte(base byte, q int) byte {
 	return byte(q<<2) | (base & 0x3)
 }
 
-// decodeClusterByte is the inverse of packClusterByte. Used by tests and any
-// downstream consumer that wants to read a generated BCL back.
-func decodeClusterByte(b byte) (base byte, q int, noCall bool) {
-	if b == 0x00 {
-		return 0, 0, true
-	}
-	return b & 0x3, int(b >> 2), false
-}
-
 // writeBCLStream writes the per-cycle BCL record to w without ever holding
 // more than ~4 KiB plus gzip's internal buffer in memory, regardless of n.
 // It writes the 4-byte little-endian N header, calls produce() to emit the
@@ -104,22 +95,7 @@ func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
 	return nil
 }
 
-// encodeBCL writes a per-cycle BCL record to w: gzip(uint32_LE(N) || N cluster bytes).
-//
-// Convenience wrapper around writeBCLStream for callers (typically tests)
-// that already have the cluster bytes in a single slice.
-//
-// The cluster bytes must already be encoded per Table 1 (bits 0..1 = base,
-// bits 2..7 = Q<<2, 0x00 = no call). See packClusterByte.
-func encodeBCL(w io.Writer, n int, clusters []byte) error {
-	if len(clusters) != n {
-		return fmt.Errorf("cluster byte slice length %d != N %d", len(clusters), n)
-	}
-	return writeBCLStream(w, n, func(gz io.Writer) error {
-		_, err := gz.Write(clusters)
-		return err
-	})
-}
+
 
 // sequenceBase returns the base (A=0, C=1, G=2, T=3) for the given
 // 0-based cycle index, or (0, true) for a no-call ('N'). Returns an error
