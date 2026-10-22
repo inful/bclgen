@@ -84,22 +84,22 @@ func decodeClusterByte(b byte) (base byte, q int, noCall bool) {
 // deterministic given input bytes.
 func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
 	if n > 0xFFFFFFFF {
-		return fmt.Errorf("bclgen: N=%d exceeds 32-bit header", n)
+		return fmt.Errorf("N=%d exceeds 32-bit header", n)
 	}
 	var hdr [bclHeaderSize]byte
 	binary.LittleEndian.PutUint32(hdr[:], uint32(n))
 
 	gz := gzip.NewWriter(w)
 	if _, err := gz.Write(hdr[:]); err != nil {
-		return fmt.Errorf("bclgen: gzip write header: %w", err)
+		return fmt.Errorf("gzip write header: %w", err)
 	}
 	if err := produce(gz); err != nil {
 		// Discard close error: produce's error is the more useful one.
 		_ = gz.Close()
-		return fmt.Errorf("bclgen: produce clusters: %w", err)
+		return fmt.Errorf("produce clusters: %w", err)
 	}
 	if err := gz.Close(); err != nil {
-		return fmt.Errorf("bclgen: gzip close: %w", err)
+		return fmt.Errorf("gzip close: %w", err)
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
 // bits 2..7 = Q<<2, 0x00 = no call). See packClusterByte.
 func encodeBCL(w io.Writer, n int, clusters []byte) error {
 	if len(clusters) != n {
-		return fmt.Errorf("bclgen: cluster byte slice length %d != N %d", len(clusters), n)
+		return fmt.Errorf("cluster byte slice length %d != N %d", len(clusters), n)
 	}
 	return writeBCLStream(w, n, func(gz io.Writer) error {
 		_, err := gz.Write(clusters)
@@ -128,12 +128,12 @@ func encodeBCL(w io.Writer, n int, clusters []byte) error {
 // "which character in this string" indexing and the error wrapping.
 func sequenceBase(seq string, cycle int) (base byte, noCall bool, err error) {
 	if seq == "" {
-		return 0, false, fmt.Errorf("bclgen: empty sequence")
+		return 0, false, fmt.Errorf("empty sequence")
 	}
 	ch := seq[cycle%len(seq)]
 	base, noCall, ok := parseBase(ch)
 	if !ok {
-		return 0, false, fmt.Errorf("bclgen: invalid base %q in sequence %q (allowed: A/C/G/T/N)", string(ch), seq)
+		return 0, false, fmt.Errorf("invalid base %q in sequence %q (allowed: A/C/G/T/N)", string(ch), seq)
 	}
 	return base, noCall, nil
 }

@@ -150,39 +150,39 @@ func (s RunSpec) fillDefaults() RunSpec {
 // that overflow the format produce file names bcl2fastq v2.20 won't match.
 func (s RunSpec) Validate() error {
 	if s.Out == "" {
-		return fmt.Errorf("bclgen: Out is required")
+		return fmt.Errorf("Out is required")
 	}
 	if s.Lanes < 1 || s.Lanes > 999 {
-		return fmt.Errorf("bclgen: Lanes must be in [1, 999], got %d", s.Lanes)
+		return fmt.Errorf("Lanes must be in [1, 999], got %d", s.Lanes)
 	}
 	if s.Surfaces != 1 && s.Surfaces != 2 {
-		return fmt.Errorf("bclgen: Surfaces must be 1 or 2, got %d", s.Surfaces)
+		return fmt.Errorf("Surfaces must be 1 or 2, got %d", s.Surfaces)
 	}
 	if s.Swaths < 1 || s.Swaths > 9 {
-		return fmt.Errorf("bclgen: Swaths must be in [1, 9], got %d", s.Swaths)
+		return fmt.Errorf("Swaths must be in [1, 9], got %d", s.Swaths)
 	}
 	if s.Tiles < 1 || s.Tiles > 99 {
-		return fmt.Errorf("bclgen: Tiles must be in [1, 99], got %d", s.Tiles)
+		return fmt.Errorf("Tiles must be in [1, 99], got %d", s.Tiles)
 	}
 	if s.Cycles < 1 {
-		return fmt.Errorf("bclgen: Cycles must be >= 1, got %d", s.Cycles)
+		return fmt.Errorf("Cycles must be >= 1, got %d", s.Cycles)
 	}
 	if s.Clusters < 1 {
-		return fmt.Errorf("bclgen: Clusters must be >= 1, got %d", s.Clusters)
+		return fmt.Errorf("Clusters must be >= 1, got %d", s.Clusters)
 	}
 	if s.PFRate < 0 || s.PFRate > 1 {
-		return fmt.Errorf("bclgen: PFRate must be in [0,1], got %v", s.PFRate)
+		return fmt.Errorf("PFRate must be in [0,1], got %v", s.PFRate)
 	}
 	if s.NoCallRate < 0 || s.NoCallRate > 1 {
-		return fmt.Errorf("bclgen: NoCallRate must be in [0,1], got %v", s.NoCallRate)
+		return fmt.Errorf("NoCallRate must be in [0,1], got %v", s.NoCallRate)
 	}
 	if s.QScore < 0 || s.QScore > 63 {
-		return fmt.Errorf("bclgen: QScore must be in [0,63], got %d", s.QScore)
+		return fmt.Errorf("QScore must be in [0,63], got %d", s.QScore)
 	}
 	if s.Sequence != "" {
 		for i := range len(s.Sequence) {
 			if _, _, ok := parseBase(s.Sequence[i]); !ok {
-				return fmt.Errorf("bclgen: invalid base %q in sequence %q (allowed: A/C/G/T/N)", s.Sequence[i], s.Sequence)
+				return fmt.Errorf("invalid base %q in sequence %q (allowed: A/C/G/T/N)", s.Sequence[i], s.Sequence)
 			}
 		}
 	}

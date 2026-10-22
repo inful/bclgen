@@ -18,11 +18,11 @@ import (
 func writeBinary(path string, fn func(io.Writer) error) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("bclgen: create %s: %w", path, err)
+		return fmt.Errorf("create %s: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 	if err := fn(f); err != nil {
-		return fmt.Errorf("bclgen: write %s: %w", path, err)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }
@@ -49,7 +49,7 @@ func streamChunks(w io.Writer, n int, fill func(buf []byte) error) error {
 			return err
 		}
 		if _, err := w.Write(buf[:size]); err != nil {
-			return fmt.Errorf("bclgen: write chunk: %w", err)
+			return fmt.Errorf("write chunk: %w", err)
 		}
 		remaining -= size
 	}

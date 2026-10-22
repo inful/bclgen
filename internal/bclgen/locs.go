@@ -51,7 +51,7 @@ func writeLocs(w io.Writer, spec RunSpec) error {
 	binary.LittleEndian.PutUint32(hdr[4:8], math.Float32bits(1.0)) // field2 = 1.0
 	binary.LittleEndian.PutUint32(hdr[8:12], uint32(spec.Clusters))
 	if _, err := w.Write(hdr[:]); err != nil {
-		return fmt.Errorf("bclgen: write locs header: %w", err)
+		return fmt.Errorf("write locs header: %w", err)
 	}
 
 	// 8 bytes per cluster (float32 X, float32 Y). Stream in 512-record
@@ -68,7 +68,7 @@ func writeLocs(w io.Writer, spec RunSpec) error {
 			chunk[i].Y = float32(rng.Float64()*1000.0) / 10.0
 		}
 		if err := binary.Write(w, binary.LittleEndian, chunk[:n]); err != nil {
-			return fmt.Errorf("bclgen: write locs body: %w", err)
+			return fmt.Errorf("write locs body: %w", err)
 		}
 		remaining -= n
 	}

@@ -91,12 +91,12 @@ func Generate(spec RunSpec) error {
 func precreateDirs(spec RunSpec) error {
 	for lane := 1; lane <= spec.Lanes; lane++ {
 		if err := os.MkdirAll(spec.locsDir(lane), 0o755); err != nil {
-			return fmt.Errorf("bclgen: mkdir %s: %w", spec.locsDir(lane), err)
+			return fmt.Errorf("mkdir %s: %w", spec.locsDir(lane), err)
 		}
 		for cycle := 1; cycle <= spec.Cycles; cycle++ {
 			dir := spec.cycleDir(lane, cycle)
 			if err := os.MkdirAll(dir, 0o755); err != nil {
-				return fmt.Errorf("bclgen: mkdir %s: %w", dir, err)
+				return fmt.Errorf("mkdir %s: %w", dir, err)
 			}
 		}
 	}
@@ -107,14 +107,14 @@ func precreateDirs(spec RunSpec) error {
 // contents. bclgen refuses to scribble over an existing run folder.
 func ensureEmptyDir(path string) error {
 	if err := os.MkdirAll(path, 0o755); err != nil {
-		return fmt.Errorf("bclgen: mkdir %s: %w", path, err)
+		return fmt.Errorf("mkdir %s: %w", path, err)
 	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("bclgen: readdir %s: %w", path, err)
+		return fmt.Errorf("readdir %s: %w", path, err)
 	}
 	if len(entries) > 0 {
-		return fmt.Errorf("bclgen: %s is not empty (refusing to overwrite)", path)
+		return fmt.Errorf("%s is not empty (refusing to overwrite)", path)
 	}
 	return nil
 }

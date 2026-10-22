@@ -51,7 +51,7 @@ func writeFilter(w io.Writer, spec RunSpec) error {
 	binary.LittleEndian.PutUint32(hdr[4:8], filterFileVersion) // version = 3
 	binary.LittleEndian.PutUint32(hdr[8:12], uint32(spec.Clusters))
 	if _, err := w.Write(hdr[:]); err != nil {
-		return fmt.Errorf("bclgen: write filter header: %w", err)
+		return fmt.Errorf("write filter header: %w", err)
 	}
 
 	if spec.PFRate >= 1.0 {

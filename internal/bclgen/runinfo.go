@@ -83,7 +83,7 @@ func writeRunInfo(spec RunSpec) error {
 
 	body, err := xml.MarshalIndent(ri, "", "  ")
 	if err != nil {
-		return fmt.Errorf("bclgen: marshal RunInfo.xml: %w", err)
+		return fmt.Errorf("marshal RunInfo.xml: %w", err)
 	}
 	// bcl2fastq expects the XML declaration on the first line.
 	body = append([]byte(xml.Header), body...)
@@ -91,7 +91,7 @@ func writeRunInfo(spec RunSpec) error {
 	// spec.Out was already MkdirAll'd by Generate.ensureEmptyDir.
 	path := filepath.Join(spec.Out, "RunInfo.xml")
 	if err := os.WriteFile(path, body, 0o644); err != nil {
-		return fmt.Errorf("bclgen: write %s: %w", path, err)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }
@@ -99,13 +99,13 @@ func writeRunInfo(spec RunSpec) error {
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
-		return fmt.Errorf("bclgen: read %s: %w", src, err)
+		return fmt.Errorf("read %s: %w", src, err)
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("bclgen: mkdir %s: %w", filepath.Dir(dst), err)
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
 	if err := os.WriteFile(dst, data, 0o644); err != nil {
-		return fmt.Errorf("bclgen: write %s: %w", dst, err)
+		return fmt.Errorf("write %s: %w", dst, err)
 	}
 	return nil
 }

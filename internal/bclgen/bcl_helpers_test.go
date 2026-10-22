@@ -13,23 +13,23 @@ import (
 func readBCL(r io.Reader, wantN int) ([]byte, error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("bclgen: gzip reader: %w", err)
+		return nil, fmt.Errorf("gzip reader: %w", err)
 	}
 	defer func() { _ = gr.Close() }()
 	raw, err := io.ReadAll(gr)
 	if err != nil {
-		return nil, fmt.Errorf("bclgen: read gz body: %w", err)
+		return nil, fmt.Errorf("read gz body: %w", err)
 	}
 	if len(raw) < bclHeaderSize {
-		return nil, fmt.Errorf("bclgen: BCL too short: %d bytes", len(raw))
+		return nil, fmt.Errorf("BCL too short: %d bytes", len(raw))
 	}
 	n := int(binary.LittleEndian.Uint32(raw[:bclHeaderSize]))
 	if n != wantN {
-		return nil, fmt.Errorf("bclgen: BCL header N=%d, want %d", n, wantN)
+		return nil, fmt.Errorf("BCL header N=%d, want %d", n, wantN)
 	}
 	clusters := raw[bclHeaderSize:]
 	if len(clusters) != n {
-		return nil, fmt.Errorf("bclgen: BCL body length %d, want %d", len(clusters), n)
+		return nil, fmt.Errorf("BCL body length %d, want %d", len(clusters), n)
 	}
 	out := make([]byte, n)
 	copy(out, clusters)
