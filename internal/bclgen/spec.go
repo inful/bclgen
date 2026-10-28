@@ -194,15 +194,15 @@ func (s RunSpec) Validate() error {
 		return fmt.Errorf("spec.PFRate must be in [0,1], got %v", s.PFRate)
 	}
 	if s.NoCallRate < 0 || s.NoCallRate > 1 {
-		return fmt.Errorf("NoCallRate must be in [0,1], got %v", s.NoCallRate)
+		return fmt.Errorf("spec.NoCallRate must be in [0,1], got %v", s.NoCallRate)
 	}
 	if s.QScore < 0 || s.QScore > 63 {
-		return fmt.Errorf("QScore must be in [0,63], got %d", s.QScore)
+		return fmt.Errorf("spec.QScore must be in [0,63], got %d", s.QScore)
 	}
 	if s.Sequence != "" {
 		for i := range len(s.Sequence) {
 			if _, _, ok := parseBase(s.Sequence[i]); !ok {
-				return fmt.Errorf("invalid base %q in sequence %q (allowed: A/C/G/T/N)", s.Sequence[i], s.Sequence)
+				return fmt.Errorf("spec.Sequence has invalid base %q in %q (allowed: A/C/G/T/N)", s.Sequence[i], s.Sequence)
 			}
 		}
 	}
