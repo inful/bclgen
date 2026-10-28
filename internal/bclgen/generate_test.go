@@ -98,6 +98,36 @@ func TestGenerate_RefusesNonEmptyDir(t *testing.T) {
 	}
 }
 
+// TestGenerate_RefusesLockedOutputDir covers the concurrency guard. Two
+// bclgen processes aimed at the same -out otherwise interleave their writes
+// and leave a folder that is a mixture of both runs, with both processes
+// reporting success.
+func TestGenerate_RefusesLockedOutputDir(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "run")
+
+	// Simulate another bclgen holding the lock.
+	lockPath := out + ".lock"
+	if err := os.WriteFile(lockPath, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	spec := DefaultSpec()
+	spec.Out = out
+	spec.Cycles = 2
+	spec.Clusters = 8
+	err := Generate(spec)
+	if err == nil {
+		t.Fatalf("expected Generate to refuse a locked output directory")
+	}
+	if !strings.Contains(err.Error(), "locked") {
+		t.Errorf("error should say the directory is locked, got: %v", err)
+	}
+	// Nothing should have been written.
+	if _, statErr := os.Stat(out); statErr == nil {
+		t.Errorf("output directory was created despite the lock")
+	}
+}
+
 // TestGenerate_ForceRefusesDangerousTargets covers the -force safety guard.
 // os.RemoveAll("/") cannot remove the mount point itself, but it does remove
 // every file beneath it — so 'bclgen -out / -force' would empty the disk.

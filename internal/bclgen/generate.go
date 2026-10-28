@@ -25,6 +25,13 @@ func Generate(spec RunSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
+	// Reject a -force target that would be catastrophic to delete before
+	// touching the filesystem at all.
+	if spec.Force {
+		if err := checkForceSafe(spec.Out); err != nil {
+			return err
+		}
+	}
 	// Cross-check a hand-written RunInfo.xml before creating anything, so a
 	// layout that disagrees with the spec fails without leaving a directory
 	// behind. The validated bytes are carried through so the file that gets
@@ -33,6 +40,15 @@ func Generate(spec RunSpec) error {
 	if err != nil {
 		return err
 	}
+	// Take an exclusive lock on the output directory before writing
+	// anything. Two bclgen processes aimed at the same -out otherwise
+	// interleave their writes and produce a folder that is a silent
+	// mixture of both runs, with both processes reporting success.
+	unlock, err := lockOutputDir(spec.Out)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if err := ensureOutputDir(spec); err != nil {
 		return err
 	}
@@ -127,9 +143,6 @@ func precreateDirs(spec RunSpec) error {
 // so 'bclgen -out / -force' would wipe the disk.
 func ensureOutputDir(spec RunSpec) error {
 	if spec.Force {
-		if err := checkForceSafe(spec.Out); err != nil {
-			return err
-		}
 		if err := os.RemoveAll(spec.Out); err != nil {
 			return fmt.Errorf("remove %s: %w", spec.Out, err)
 		}
@@ -164,4 +177,34 @@ func checkForceSafe(path string) error {
 		return fmt.Errorf("refusing to use -force on %q: that would delete everything above the output folder; -out must name a dedicated directory", path)
 	}
 	return nil
+}
+
+// lockOutputDir takes an exclusive lock on the output directory and returns
+// the function that releases it.
+//
+// Without this, two bclgen processes aimed at the same -out interleave their
+// writes: one process's ensureOutputDir sees an empty directory, the other's
+// sees the same, and both go on to write files over each other. The result is
+// a folder that is a mixture of the two runs, and both processes print
+// "wrote run folder to ...". A silently-wrong output is worse than a
+// refused one.
+//
+// The lock file lives beside the output directory, not inside it, so it never
+// appears in the run folder bcl2fastq reads. It is created with O_EXCL, so
+// the create itself is the atomic test-and-set.
+//
+// The lock is advisory: it stops two bclgen processes, not arbitrary writers.
+// A stale lock file (left by a process killed with SIGKILL) blocks the next
+// run until it is removed; the error says so.
+func lockOutputDir(out string) (func(), error) {
+	lockPath := out + ".lock"
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil, fmt.Errorf("%s is locked by another bclgen process; if that process is gone, remove %s and retry", out, lockPath)
+		}
+		return nil, fmt.Errorf("create lock %s: %w", lockPath, err)
+	}
+	_ = f.Close()
+	return func() { _ = os.Remove(lockPath) }, nil
 }
