@@ -12,9 +12,9 @@ import (
 // create/defer-close/wrap dance.
 //
 // On error from fn the file is left on disk in whatever partial state fn
-// reached; callers higher up the stack refuse to write into a non-empty Out
-// before this is reached, so a partial write here is a real failure mode
-// the caller should surface as-is.
+// reached. Generate empties the output directory before writing (with
+// -force) and holds a lock on it, so a partial file is left behind for
+// inspection and the next run replaces it rather than refusing to start.
 func writeBinary(path string, fn func(io.Writer) error) error {
 	f, err := os.Create(path)
 	if err != nil {

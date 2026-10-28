@@ -78,7 +78,7 @@ partial folder and retry; everything under -out is deleted first.
 		instrument  = fs.String("instrument", defaults.Instrument, "RunInfo Instrument")
 		date        = fs.String("date", "", "RunInfo Date in YYMMDD (default: today)")
 		flowcell    = fs.String("flowcell", defaults.Flowcell, "RunInfo Flowcell")
-		runInfoPath = fs.String("runinfo", "", "path to a hand-written RunInfo.xml to copy in instead of generating one")
+		runInfoPath = fs.String("runinfo", "", "path to a hand-written RunInfo.xml to copy in instead of generating one; its lane/tile/cycle counts must match -lanes/-swaths/-tiles/-cycles, or the run is refused")
 		sampleSheet = fs.String("sample-sheet", "", "path to a SampleSheet.csv to copy into the run root")
 		sequence    = fs.String("sequence", "", "per-cycle base pattern (e.g. \"ACGT\" or \"ACGTACGTN\"). When set, cycle i uses the i'th character (mod length) for ALL clusters, overriding random bases. Allowed: A/C/G/T/N (case-insensitive).")
 		progress    = fs.Bool("progress", false, "print a progress line to stderr every ~2% of tiles (one line per tile for runs under 50 tiles)")
