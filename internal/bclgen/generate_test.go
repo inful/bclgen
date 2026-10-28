@@ -98,6 +98,29 @@ func TestGenerate_RefusesNonEmptyDir(t *testing.T) {
 	}
 }
 
+// TestGenerate_ForceRefusesDangerousTargets covers the -force safety guard.
+// os.RemoveAll("/") cannot remove the mount point itself, but it does remove
+// every file beneath it — so 'bclgen -out / -force' would empty the disk.
+// '..' would delete the parent directory. Both must be refused.
+func TestGenerate_ForceRefusesDangerousTargets(t *testing.T) {
+	for _, target := range []string{"/", ".", ".."} {
+		t.Run(target, func(t *testing.T) {
+			spec := DefaultSpec()
+			spec.Out = target
+			spec.Force = true
+			spec.Cycles = 1
+			spec.Clusters = 4
+			err := Generate(spec)
+			if err == nil {
+				t.Fatalf("Generate accepted -force on %q", target)
+			}
+			if !strings.Contains(err.Error(), "-force") {
+				t.Errorf("error should mention -force, got: %v", err)
+			}
+		})
+	}
+}
+
 // TestGenerate_ForceReplacesPartialOutput covers the retry path: a run that
 // died partway leaves a partial folder, and without -force every subsequent
 // retry fails with "is not empty" until the user deletes it by hand.

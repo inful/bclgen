@@ -120,10 +120,16 @@ func precreateDirs(spec RunSpec) error {
 // folder behind, and without -force every retry fails with "is not empty"
 // until the user removes the directory by hand.
 //
-// Force only ever deletes inside spec.Out. Out is the one path the user named
-// explicitly, and everything bclgen writes lives under it.
+// Force deletes spec.Out itself along with everything inside it, including
+// files that have nothing to do with bclgen. It is opt-in for that reason.
+// A filesystem root is refused outright: os.RemoveAll("/") cannot remove "/"
+// itself (the mount point is busy) but it does remove every file inside it,
+// so 'bclgen -out / -force' would wipe the disk.
 func ensureOutputDir(spec RunSpec) error {
 	if spec.Force {
+		if err := checkForceSafe(spec.Out); err != nil {
+			return err
+		}
 		if err := os.RemoveAll(spec.Out); err != nil {
 			return fmt.Errorf("remove %s: %w", spec.Out, err)
 		}
@@ -140,6 +146,22 @@ func ensureOutputDir(spec RunSpec) error {
 	}
 	if len(entries) > 0 {
 		return fmt.Errorf("%s is not empty (refusing to overwrite; pass -force to replace it)", spec.Out)
+	}
+	return nil
+}
+
+// checkForceSafe refuses a -force target that would be catastrophic to
+// delete. A filesystem root is the case that matters: os.RemoveAll cannot
+// remove the mount point itself, but it does remove every file beneath it, so
+// 'bclgen -out / -force' would empty the disk.
+//
+// A bare relative name like "." or ".." is refused too, because
+// os.RemoveAll(".") fails with EINVAL but os.RemoveAll("..") would delete the
+// parent directory.
+func checkForceSafe(path string) error {
+	clean := filepath.Clean(path)
+	if clean == string(filepath.Separator) || clean == "." || clean == ".." {
+		return fmt.Errorf("refusing to use -force on %q: that would delete everything above the output folder; -out must name a dedicated directory", path)
 	}
 	return nil
 }
