@@ -27,15 +27,17 @@ func Generate(spec RunSpec) error {
 	}
 	// Cross-check a hand-written RunInfo.xml before creating anything, so a
 	// layout that disagrees with the spec fails without leaving a directory
-	// behind.
-	if err := checkRunInfoOverride(spec); err != nil {
+	// behind. The validated bytes are carried through so the file that gets
+	// written is exactly the one that was checked.
+	override, err := checkRunInfoOverride(spec)
+	if err != nil {
 		return err
 	}
 	if err := ensureOutputDir(spec); err != nil {
 		return err
 	}
 
-	if err := writeRunInfo(spec); err != nil {
+	if err := writeRunInfo(spec, override); err != nil {
 		return err
 	}
 

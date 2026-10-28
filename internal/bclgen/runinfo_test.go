@@ -113,6 +113,38 @@ func TestRunInfo_OverrideFile(t *testing.T) {
 	}
 }
 
+// TestRunInfo_OverrideSurfaceCountAccepted pins that SurfaceCount is NOT
+// cross-checked. bcl2fastq v2.20 hardcodes the surface to 1 in the
+// cycle-directory lookup for the .bcl.gz flavor, so it never reads
+// SurfaceCount, and bclgen writes surface 1 regardless of spec.Surfaces.
+// Checking it rejected working configurations: a hand-written RunInfo with
+// SurfaceCount="2" next to the default -surfaces 1 was refused, with an error
+// blaming a mechanism that does not apply to this field.
+func TestRunInfo_OverrideSurfaceCountAccepted(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "RunInfo.xml")
+	body := xml.Header + `<RunInfo Version="2"><Run Id="U" Number="1">` +
+		`<Reads><Read Number="1" NumCycles="26" IsIndexedRead="N"/></Reads>` +
+		`<FlowcellLayout LaneCount="1" SurfaceCount="2" SwathCount="1" TileCount="1"/>` +
+		`</Run></RunInfo>`
+	if err := os.WriteFile(override, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec := DefaultSpec()
+	spec.Out = filepath.Join(t.TempDir(), "run")
+	spec.RunInfoXMLPath = override
+
+	if err := Generate(spec); err != nil {
+		t.Fatalf("Generate rejected a RunInfo whose SurfaceCount differs from the spec: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(spec.Out, "RunInfo.xml"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(got), `SurfaceCount="2"`) {
+		t.Errorf("the supplied RunInfo was not copied verbatim: %s", got)
+	}
+}
+
 // TestRunInfo_OverrideMismatchRejected pins the cross-check: bcl2fastq reads
 // the lane/swath/tile/cycle counts out of RunInfo.xml and iterates them, so a
 // hand-written RunInfo that disagrees with the spec describes data bclgen

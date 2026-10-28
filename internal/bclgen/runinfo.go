@@ -54,10 +54,11 @@ type runInfoLayout struct {
 // If spec.RunInfoXMLPath is set, that file is used instead of generating one —
 // useful when the user wants full control over read structure. Generate has
 // already cross-checked it against the spec (checkRunInfoOverride), before
-// creating any directories.
-func writeRunInfo(spec RunSpec) error {
+// creating any directories, and passes the bytes it validated so that exactly
+// what was checked is what gets written.
+func writeRunInfo(spec RunSpec, override []byte) error {
 	if spec.RunInfoXMLPath != "" {
-		return copyFile(spec.RunInfoXMLPath, filepath.Join(spec.Out, "RunInfo.xml"))
+		return writeFile(filepath.Join(spec.Out, "RunInfo.xml"), override)
 	}
 
 	ri := runInfo{
@@ -105,34 +106,43 @@ func writeRunInfo(spec RunSpec) error {
 // of 1 lane produces a folder bcl2fastq cannot read, and bclgen reports
 // success.
 //
+// It returns the bytes it read so the caller can write exactly what was
+// checked. Re-reading the file later would let the validated layout and the
+// written layout diverge.
+//
 // A malformed or unexpected RunInfo is only warned about, never rejected: the
 // point of -runinfo is full manual control, and refusing to run would defeat
 // it. Only a clear disagreement between the declared layout and the generated
 // data is an error.
-func checkRunInfoOverride(spec RunSpec) error {
+//
+// SurfaceCount is deliberately NOT checked. bcl2fastq v2.20 hardcodes the
+// surface to 1 in the cycle-directory lookup for the .bcl.gz flavor, so it
+// never reads SurfaceCount; bclgen writes surface 1 regardless of
+// spec.Surfaces. There is nothing for it to disagree with, and checking it
+// rejected working configurations.
+func checkRunInfoOverride(spec RunSpec) ([]byte, error) {
 	if spec.RunInfoXMLPath == "" {
-		return nil // generated RunInfo always matches by construction
+		return nil, nil // generated RunInfo always matches by construction
 	}
 	body, err := os.ReadFile(spec.RunInfoXMLPath)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", spec.RunInfoXMLPath, err)
+		return nil, fmt.Errorf("read %s: %w", spec.RunInfoXMLPath, err)
 	}
 	var ri runInfo
 	if err := xml.Unmarshal(body, &ri); err != nil {
 		// Not parseable as RunInfo — the user is on their own.
 		fmt.Fprintf(os.Stderr, "bclgen: warning: %s is not parseable as RunInfo.xml (%v); copying it verbatim\n",
 			spec.RunInfoXMLPath, err)
-		return nil
+		return body, nil
 	}
 
 	var mismatches []string
 	want := map[string][2]int{
-		"LaneCount":    {ri.Run.Layout.LaneCount, spec.Lanes},
-		"SurfaceCount": {ri.Run.Layout.SurfaceCount, spec.Surfaces},
-		"SwathCount":   {ri.Run.Layout.SwathCount, spec.Swaths},
-		"TileCount":    {ri.Run.Layout.TileCount, spec.Tiles},
+		"LaneCount":  {ri.Run.Layout.LaneCount, spec.Lanes},
+		"SwathCount": {ri.Run.Layout.SwathCount, spec.Swaths},
+		"TileCount":  {ri.Run.Layout.TileCount, spec.Tiles},
 	}
-	for _, name := range []string{"LaneCount", "SurfaceCount", "SwathCount", "TileCount"} {
+	for _, name := range []string{"LaneCount", "SwathCount", "TileCount"} {
 		if got, exp := want[name][0], want[name][1]; got != exp {
 			mismatches = append(mismatches, fmt.Sprintf("%s: RunInfo says %d, spec says %d", name, got, exp))
 		}
@@ -153,10 +163,10 @@ func checkRunInfoOverride(spec RunSpec) error {
 	}
 
 	if len(mismatches) > 0 {
-		return fmt.Errorf("%s does not match the spec: %s (bcl2fastq reads the layout from RunInfo.xml, so the generated data would not match it)",
+		return nil, fmt.Errorf("%s does not match the spec: %s (bcl2fastq reads the layout from RunInfo.xml, so the generated data would not match it)",
 			spec.RunInfoXMLPath, strings.Join(mismatches, "; "))
 	}
-	return nil
+	return body, nil
 }
 
 func copyFile(src, dst string) error {
@@ -164,6 +174,11 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
+	return writeFile(dst, data)
+}
+
+// writeFile writes data to dst, creating the parent directory if needed.
+func writeFile(dst string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
