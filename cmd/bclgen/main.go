@@ -18,6 +18,10 @@ import (
 	"github.com/inful/bclgen/internal/bclgen"
 )
 
+// version is the build version. It is overridden at link time by goreleaser
+// (-X main.version=...); "dev" is what a plain 'go build' produces.
+var version = "dev"
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "bclgen: %v\n", err)
@@ -80,9 +84,14 @@ partial folder and retry; everything under -out is deleted first.
 		progress    = fs.Bool("progress", false, "print a progress line to stderr every ~2% of tiles (one line per tile for runs under 50 tiles)")
 		force       = fs.Bool("force", false, "delete -out and everything under it before generating; needed to retry a run that failed partway")
 		help        = fs.Bool("help", false, "show help")
+		showVersion = fs.Bool("version", false, "print the version and exit")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *showVersion {
+		fmt.Printf("bclgen %s\n", version)
+		return nil
 	}
 	if *help {
 		fs.Usage()

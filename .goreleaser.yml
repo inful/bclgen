@@ -25,6 +25,9 @@ builds:
     ldflags:
       - -s
       - -w
+      # Stamp the release version into the binary so 'bclgen -version'
+      # reports which build is running.
+      - -X main.version={{.Version}}
 
 archives:
   - id: default

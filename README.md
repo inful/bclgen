@@ -142,6 +142,7 @@ bclgen -out /tmp/mockrun -cycles 26 -clusters 1000 -seed 1 -force
 | `-progress`       |         | print a progress line to stderr every ~2% of tiles (one line per tile under 50 tiles) |
 | `-force`          |         | delete `-out` and everything under it first; needed to retry a run that failed partway |
 | `-help`           |         | show help                                       |
+| `-version`        |         | print the version and exit                      |
 
 ## Determinism
 
