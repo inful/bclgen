@@ -102,6 +102,52 @@ func TestGenerate_RefusesNonEmptyDir(t *testing.T) {
 // bclgen processes aimed at the same -out otherwise interleave their writes
 // and leave a folder that is a mixture of both runs, with both processes
 // reporting success.
+// TestGenerate_FillDefaultsFromBareSpec covers the library path where a
+// caller hand-builds a RunSpec instead of starting from DefaultSpec(). Every
+// other test starts from DefaultSpec(), so the defaulting branches for the
+// string fields were never exercised.
+//
+// It also pins the exception: PFRate and NoCallRate are float64 and 0 is a
+// meaningful value for them, so zeroing must survive fillDefaults rather
+// than being read back as "unset". TestGenerate_AcceptsZeroPFRate covers the
+// PFRate half through Generate; this checks both directly.
+func TestGenerate_FillDefaultsFromBareSpec(t *testing.T) {
+	out := t.TempDir()
+	spec := RunSpec{Out: out} // deliberately bare
+	filled := spec.fillDefaults()
+	d := DefaultSpec()
+
+	if filled.Lanes != d.Lanes || filled.Swaths != d.Swaths || filled.Tiles != d.Tiles ||
+		filled.Surfaces != d.Surfaces || filled.Cycles != d.Cycles ||
+		filled.Clusters != d.Clusters || filled.QScore != d.QScore || filled.Seed != d.Seed {
+		t.Errorf("numeric fields not defaulted: %+v", filled)
+	}
+	if filled.RunID != d.RunID || filled.Instrument != d.Instrument ||
+		filled.Date != d.Date || filled.Flowcell != d.Flowcell {
+		t.Errorf("string fields not defaulted: RunID=%q Instrument=%q Date=%q Flowcell=%q",
+			filled.RunID, filled.Instrument, filled.Date, filled.Flowcell)
+	}
+	// The float exception: 0 must survive.
+	if filled.PFRate != 0 {
+		t.Errorf("PFRate 0 was reset to %v; 0 means 'no cluster passes filter', not 'unset'", filled.PFRate)
+	}
+	if filled.NoCallRate != 0 {
+		t.Errorf("NoCallRate 0 was reset to %v; 0 means 'no no-calls', not 'unset'", filled.NoCallRate)
+	}
+
+	// And the bare spec must actually generate a valid folder.
+	if err := Generate(RunSpec{Out: filepath.Join(out, "run")}); err != nil {
+		t.Fatalf("Generate with a bare RunSpec: %v", err)
+	}
+	if err := fileNonEmpty(t, filepath.Join(out, "run", "RunInfo.xml")); err != nil {
+		t.Errorf("%v", err)
+	}
+}
+
+// TestGenerate_RefusesLockedOutputDir covers the concurrency guard. Two
+// bclgen processes aimed at the same -out otherwise interleave their writes
+// and leave a folder that is a mixture of both runs, with both processes
+// reporting success.
 func TestGenerate_RefusesLockedOutputDir(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "run")
 
