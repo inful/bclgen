@@ -32,6 +32,14 @@ func writeBinary(path string, fn func(io.Writer) error) error {
 // a gzip.Writer hits a hot path.
 const chunkSize = 4096
 
+// maxClusterCount is the largest per-tile cluster count the on-disk formats
+// can represent: the BCL header (Table 1), the filter header (Table 3) and
+// the locs header (PositionsFile.cpp) all store N as a uint32.
+//
+// It is an int64 so that the comparison compiles on 32-bit platforms, where
+// the untyped constant 0xFFFFFFFF does not fit in an int.
+const maxClusterCount int64 = 0xFFFFFFFF
+
 // streamChunks writes n bytes to w by repeatedly filling a chunkSize scratch
 // buffer via fill() and writing it. Memory use is bounded regardless of n —
 // the point is to write millions of cluster bytes through gzip without ever

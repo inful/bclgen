@@ -74,7 +74,7 @@ func packClusterByte(base byte, q int) byte {
 // the byte-level equivalent of one big gzip.Write — gzip's output is
 // deterministic given input bytes.
 func writeBCLStream(w io.Writer, n int, produce func(io.Writer) error) error {
-	if n > 0xFFFFFFFF {
+	if int64(n) > maxClusterCount {
 		return fmt.Errorf("cluster count N=%d exceeds the 32-bit header limit", n)
 	}
 	var hdr [bclHeaderSize]byte

@@ -187,8 +187,8 @@ func (s RunSpec) Validate() error {
 	// rather than left to writeBCLStream because locs and filter are
 	// written before it and would emit Clusters*8 and Clusters*1
 	// bytes of unrepresentable data first.
-	if s.Clusters > 0xFFFFFFFF {
-		return fmt.Errorf("spec.Clusters must be <= %d (32-bit file header), got %d", int64(0xFFFFFFFF), s.Clusters)
+	if int64(s.Clusters) > maxClusterCount {
+		return fmt.Errorf("spec.Clusters must be <= %d (32-bit file header), got %d", maxClusterCount, s.Clusters)
 	}
 	if s.PFRate < 0 || s.PFRate > 1 {
 		return fmt.Errorf("spec.PFRate must be in [0,1], got %v", s.PFRate)
